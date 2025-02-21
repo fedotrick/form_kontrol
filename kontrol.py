@@ -171,10 +171,16 @@ class ControlForm(QWidget):
         self.контролер2_input.setStyleSheet("color: white;")
         self.контролер2_input.setCurrentIndex(-1)
 
+        self.контролер3_input = QComboBox(self)
+        self.контролер3_input.addItems(persons)  # Добавляем участников в комбобокс
+        self.контролер3_input.setFont(QtGui.QFont("Aptos", 12, QtGui.QFont.Bold))
+        self.контролер3_input.setStyleSheet("color: white;")
+        self.контролер3_input.setCurrentIndex(-1)
+        
         # Настраиваем поле даты
         self.контроль_дата_приемки_input = QDateEdit(self)
         self.контроль_дата_приемки_input.setDisplayFormat("dd.MM.yyyy")
-        self.контроль_дата_приемки_input.setDate(QDate.currentDate().addDays(-1))  # Вчерашняя дата по умолчанию
+        self.контроль_дата_приемки_input.setDate(QDate.currentDate())  # Текущая дата по умолчанию
         self.контроль_дата_приемки_input.setCalendarPopup(True)  # Разрешаем всплывающий календарь
         self.контроль_дата_приемки_input.setStyleSheet("""
             QDateEdit {
@@ -195,6 +201,7 @@ class ControlForm(QWidget):
         form_layout1.addRow(QLabel("Принято, шт.:"), self.контроль_принято_input)
         form_layout1.addRow(QLabel("Контролер 1:"), self.контролер1_input)
         form_layout1.addRow(QLabel("Контролер 2:"), self.контролер2_input)
+        form_layout1.addRow(QLabel("Контролер 3:"), self.контролер3_input)
         
         group_box1.setLayout(form_layout1)
 
@@ -229,7 +236,9 @@ class ControlForm(QWidget):
         form_layout3.setContentsMargins(5, 5, 5, 5)
         
         self.доработка_раковины_input = QLineEdit(self)
+        self.доработка_раковины_input.hide()  # Hide the field
         self.доработка_зарез_input = QLineEdit(self)
+        self.доработка_зарез_input.hide()  # Hide the field
         self.доработка_несоответствие_размеров_input = QLineEdit(self)
         self.доработка_несоответствие_внешнего_вида_input = QLineEdit(self)
         self.доработка_наплыв_металла_input = QLineEdit(self)
@@ -246,8 +255,7 @@ class ControlForm(QWidget):
         self.доработка_корона_input = QLineEdit(self)
         self.доработка_смещение_input = QLineEdit(self)
 
-        form_layout3.addRow(QLabel("Раковины:"), self.доработка_раковины_input)
-        form_layout3.addRow(QLabel("Зарез:"), self.доработка_зарез_input)
+        # Add rows without the hidden fields
         form_layout3.addRow(QLabel("Несоответствие размеров:"), self.доработка_несоответствие_размеров_input)
         form_layout3.addRow(QLabel("Несоответствие внешнего вида:"), self.доработка_несоответствие_внешнего_вида_input)
         form_layout3.addRow(QLabel("Наплыв металла:"), self.доработка_наплыв_металла_input)
@@ -481,6 +489,82 @@ class ControlForm(QWidget):
         # Подключаем обработчик изменения номера плавки
         self.номер_плавки_input.currentTextChanged.connect(self.update_наименование_отливки)
 
+        # Устанавливаем фокус на первое поле при запуске
+        self.контроль_дата_приемки_input.setFocus()
+        
+        # Список всех интерактивных виджетов для навигации
+        self.focusable_widgets = [
+            self.контроль_дата_приемки_input,
+            self.номер_плавки_input,
+            self.контроль_отлито_input,
+            self.контролер1_input,
+            self.контролер2_input,
+            self.контролер3_input,
+            self.второй_сорт_раковины_input,
+            self.второй_сорт_зарез_input,
+            self.доработка_раковины_input,
+            self.доработка_зарез_input,
+            self.доработка_несоответствие_размеров_input,
+            self.доработка_несоответствие_внешнего_вида_input,
+            self.доработка_наплыв_металла_input,
+            self.доработка_прорыв_металла_input,
+            self.доработка_вырыв_input,
+            self.доработка_облой_input,
+            self.доработка_песок_на_поверхности_input,
+            self.доработка_песок_в_резьбе_input,
+            self.доработка_клей_input,
+            self.доработка_коробление_input,
+            self.доработка_дефект_пеномодели_input,
+            self.доработка_лапы_input,
+            self.доработка_питатель_input,
+            self.доработка_корона_input,
+            self.доработка_смещение_input,
+            self.окончательный_брак_недолив_input,
+            self.окончательный_брак_вырыв_input,
+            self.окончательный_брак_зарез_input,
+            self.окончательный_брак_коробление_input,
+            self.окончательный_брак_наплыв_металла_input,
+            self.окончательный_брак_нарушение_геометрии_input,
+            self.окончательный_брак_нарушение_маркировки_input,
+            self.окончательный_брак_непроклей_input,
+            self.окончательный_брак_неслитина_input,
+            self.окончательный_брак_несоответствие_внешнего_вида_input,
+            self.окончательный_брак_несоответствие_размеров_input,
+            self.окончательный_брак_пеномодель_input,
+            self.окончательный_брак_пористость_input,
+            self.окончательный_брак_пригар_песка_input,
+            self.окончательный_брак_прочее_input,
+            self.окончательный_брак_рыхлота_input,
+            self.окончательный_брак_раковины_input,
+            self.окончательный_брак_скол_input,
+            self.окончательный_брак_слом_input,
+            self.окончательный_брак_спай_input,
+            self.окончательный_брак_трещины_input
+        ]
+        
+        # Устанавливаем обработку клавиш для каждого виджета
+        for widget in self.focusable_widgets:
+            widget.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress and obj in self.focusable_widgets:
+            key = event.key()
+            current_index = self.focusable_widgets.index(obj)
+            
+            if key == Qt.Key_Up:
+                # Переход к предыдущему виджету (циклично)
+                next_index = (current_index - 1) % len(self.focusable_widgets)
+                self.focusable_widgets[next_index].setFocus()
+                return True
+                
+            elif key == Qt.Key_Down:
+                # Переход к следующему виджету (циклично)
+                next_index = (current_index + 1) % len(self.focusable_widgets)
+                self.focusable_widgets[next_index].setFocus()
+                return True
+                
+        return super().eventFilter(obj, event)
+
     def load_plavka_numbers(self):
         if not os.path.exists('plavka.xlsx'):
             QMessageBox.warning(self, "Ошибка", "Файл plavka.xlsx не найден")
@@ -611,7 +695,7 @@ class ControlForm(QWidget):
                 QMessageBox.warning(self, "Ошибка", "Укажите количество отлитых деталей")
                 return
                 
-            if not self.контролер1_input.currentText() and not self.контролер2_input.currentText():
+            if not self.контролер1_input.currentText() and not self.контролер2_input.currentText() and not self.контролер3_input.currentText():
                 QMessageBox.warning(self, "Ошибка", "Укажите хотя бы одного контролера")
                 return
 
@@ -623,6 +707,7 @@ class ControlForm(QWidget):
                 self.контроль_дата_приемки_input.date().toString("dd.MM.yyyy"),
                 self.контролер1_input.currentText(),
                 self.контролер2_input.currentText(),
+                self.контролер3_input.currentText(),
                 self.второй_сорт_раковины_input.text(),
                 self.второй_сорт_зарез_input.text(),
                 self.доработка_раковины_input.text(),
@@ -667,7 +752,7 @@ class ControlForm(QWidget):
 
             headers = [
                 'Номер_плавки', 'Контроль_отлито', 'Контроль_принято',
-                'Контроль_дата_приемки', 'Контролер1', 'Контролер2',
+                'Контроль_дата_приемки', 'Контролер1', 'Контролер2', 'Контролер3',
                 'Второй_сорт_раковины', 'Второй_сорт_зарез',
                 'Доработка_раковины', 'Доработка_зарез',
                 'Доработка_несоответствие_размеров', 'Доработка_несоответствие_внешнего_вида',
@@ -723,74 +808,72 @@ class ControlForm(QWidget):
             self.номер_плавки_input.clear()
             self.load_plavka_numbers()  # Обновляем список доступных номеров
             
-            # Спрашиваем пользователя, хочет ли он очистить форму
-            reply = QMessageBox.question(self, 'Очистка формы', 
-                                       'Хотите очистить форму для новой записи?',
-                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            
-            if reply == QMessageBox.Yes:
-                self.clear_form()
+            # Очищаем форму
+            self.clear_form()
             
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Ошибка при сохранении данных: {str(e)}")
         
         
     def clear_form(self):
-        reply = QMessageBox.question(self, 'Подтверждение', 
-                                   'Вы уверены, что хотите очистить форму?',
-                                   QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        
-        if reply == QMessageBox.Yes:
-            self.номер_плавки_input.setCurrentIndex(-1)
-            self.контроль_отлито_input.setText('')
-            self.контроль_принято_input.setText('')
-            self.контроль_дата_приемки_input.setDate(QDate.currentDate().addDays(-1))
-            self.контролер1_input.setCurrentIndex(-1)  # Сброс выбора
-            self.контролер2_input.setCurrentIndex(-1)  # Сброс выбора
+        """Очистка формы"""
+        # Очищаем все поля без дополнительных диалогов
+        self.номер_плавки_input.setCurrentIndex(-1)
+        self.контроль_отлито_input.setText('')
+        self.контроль_принято_input.setText('')
+        self.контроль_дата_приемки_input.setDate(QDate.currentDate())
+        self.контролер1_input.setCurrentIndex(-1)
+        self.контролер2_input.setCurrentIndex(-1)
+        self.контролер3_input.setCurrentIndex(-1)
 
-            self.второй_сорт_раковины_input.setText('')
-            self.второй_сорт_зарез_input.setText('')
+        # Очистка полей второго сорта
+        self.второй_сорт_раковины_input.setText('')
+        self.второй_сорт_зарез_input.setText('')
 
-            self.доработка_раковины_input.setText('')
-            self.доработка_зарез_input.setText('')
-            self.доработка_несоответствие_размеров_input.setText('')
-            self.доработка_несоответствие_внешнего_вида_input.setText('')
-            self.доработка_наплыв_металла_input.setText('')
-            self.доработка_прорыв_металла_input.setText('')
-            self.доработка_вырыв_input.setText('')
-            self.доработка_облой_input.setText('')
-            self.доработка_песок_на_поверхности_input.setText('')
-            self.доработка_песок_в_резьбе_input.setText('')
-            self.доработка_клей_input.setText('')
-            self.доработка_коробление_input.setText('')
-            self.доработка_дефект_пеномодели_input.setText('')
-            self.доработка_лапы_input.setText('')
-            self.доработка_питатель_input.setText('')
-            self.доработка_корона_input.setText('')
-            self.доработка_смещение_input.setText('')
+        # Очистка полей доработки
+        self.доработка_раковины_input.setText('')
+        self.доработка_зарез_input.setText('')
+        self.доработка_несоответствие_размеров_input.setText('')
+        self.доработка_несоответствие_внешнего_вида_input.setText('')
+        self.доработка_наплыв_металла_input.setText('')
+        self.доработка_прорыв_металла_input.setText('')
+        self.доработка_вырыв_input.setText('')
+        self.доработка_облой_input.setText('')
+        self.доработка_песок_на_поверхности_input.setText('')
+        self.доработка_песок_в_резьбе_input.setText('')
+        self.доработка_клей_input.setText('')
+        self.доработка_коробление_input.setText('')
+        self.доработка_дефект_пеномодели_input.setText('')
+        self.доработка_лапы_input.setText('')
+        self.доработка_питатель_input.setText('')
+        self.доработка_корона_input.setText('')
+        self.доработка_смещение_input.setText('')
 
-            self.окончательный_брак_недолив_input.setText('')
-            self.окончательный_брак_вырыв_input.setText('')
-            self.окончательный_брак_зарез_input.setText('')
-            self.окончательный_брак_коробление_input.setText('')
-            self.окончательный_брак_наплыв_металла_input.setText('')
-            self.окончательный_брак_нарушение_геометрии_input.setText('')
-            self.окончательный_брак_нарушение_маркировки_input.setText('')
-            self.окончательный_брак_непроклей_input.setText('')
-            self.окончательный_брак_неслитина_input.setText('')
-            self.окончательный_брак_несоответствие_внешнего_вида_input.setText('')
-            self.окончательный_брак_несоответствие_размеров_input.setText('')
-            self.окончательный_брак_пеномодель_input.setText('')
-            self.окончательный_брак_пористость_input.setText('')
-            self.окончательный_брак_пригар_песка_input.setText('')
-            self.окончательный_брак_прочее_input.setText('')
-            self.окончательный_брак_рыхлота_input.setText('')
-            self.окончательный_брак_раковины_input.setText('')
-            self.окончательный_брак_скол_input.setText('')
-            self.окончательный_брак_слом_input.setText('')
-            self.окончательный_брак_спай_input.setText('')
-            self.окончательный_брак_трещины_input.setText('')
-            self.наименование_отливки_input.clear()  # Очищаем поле наименования
+        # Очистка полей окончательного брака
+        self.окончательный_брак_недолив_input.setText('')
+        self.окончательный_брак_вырыв_input.setText('')
+        self.окончательный_брак_зарез_input.setText('')
+        self.окончательный_брак_коробление_input.setText('')
+        self.окончательный_брак_наплыв_металла_input.setText('')
+        self.окончательный_брак_нарушение_геометрии_input.setText('')
+        self.окончательный_брак_нарушение_маркировки_input.setText('')
+        self.окончательный_брак_непроклей_input.setText('')
+        self.окончательный_брак_неслитина_input.setText('')
+        self.окончательный_брак_несоответствие_внешнего_вида_input.setText('')
+        self.окончательный_брак_несоответствие_размеров_input.setText('')
+        self.окончательный_брак_пеномодель_input.setText('')
+        self.окончательный_брак_пористость_input.setText('')
+        self.окончательный_брак_пригар_песка_input.setText('')
+        self.окончательный_брак_прочее_input.setText('')
+        self.окончательный_брак_рыхлота_input.setText('')
+        self.окончательный_брак_раковины_input.setText('')
+        self.окончательный_брак_скол_input.setText('')
+        self.окончательный_брак_слом_input.setText('')
+        self.окончательный_брак_спай_input.setText('')
+        self.окончательный_брак_трещины_input.setText('')
+
+        # Обновляем наименование отливки
+        self.update_наименование_отливки()
 
     def animate_group_hover(self, group, hover_in):
         if not hasattr(self, 'animations'):
