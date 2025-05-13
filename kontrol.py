@@ -217,10 +217,13 @@ class ControlForm(QWidget):
         form_layout2.setContentsMargins(5, 5, 5, 5)
         
         self.второй_сорт_раковины_input = QLineEdit(self)
-        self.второй_сорт_зарез_input = QLineEdit(self)
+        # Удаляем старое поле второй_сорт_зарез_input и создаем два новых поля
+        self.второй_сорт_зарез_литейный_input = QLineEdit(self)
+        self.второй_сорт_зарез_пеномодельный_input = QLineEdit(self)
 
         form_layout2.addRow(QLabel("Раковины:"), self.второй_сорт_раковины_input)
-        form_layout2.addRow(QLabel("Зарез:"), self.второй_сорт_зарез_input)
+        form_layout2.addRow(QLabel("Зарез литейный:"), self.второй_сорт_зарез_литейный_input)
+        form_layout2.addRow(QLabel("Зарез пеномодельный:"), self.второй_сорт_зарез_пеномодельный_input)
 
         group_box2.setLayout(form_layout2)
 
@@ -247,7 +250,9 @@ class ControlForm(QWidget):
         self.доработка_облой_input = QLineEdit(self)
         self.доработка_песок_на_поверхности_input = QLineEdit(self)
         self.доработка_песок_в_резьбе_input = QLineEdit(self)
-        self.доработка_клей_input = QLineEdit(self)
+        # Удаляем старое поле клея и создаем два новых
+        self.доработка_клей_подтёк_input = QLineEdit(self)
+        self.доработка_клей_по_шву_input = QLineEdit(self)
         self.доработка_коробление_input = QLineEdit(self)
         self.доработка_дефект_пеномодели_input = QLineEdit(self)
         self.доработка_лапы_input = QLineEdit(self)
@@ -264,7 +269,8 @@ class ControlForm(QWidget):
         form_layout3.addRow(QLabel("Облой:"), self.доработка_облой_input)
         form_layout3.addRow(QLabel("Песок на поверхности:"), self.доработка_песок_на_поверхности_input)
         form_layout3.addRow(QLabel("Песок в резьбе:"), self.доработка_песок_в_резьбе_input)
-        form_layout3.addRow(QLabel("Клей:"), self.доработка_клей_input)
+        form_layout3.addRow(QLabel("Клей подтёк:"), self.доработка_клей_подтёк_input)
+        form_layout3.addRow(QLabel("Клей по шву:"), self.доработка_клей_по_шву_input)
         form_layout3.addRow(QLabel("Коробление:"), self.доработка_коробление_input)
         form_layout3.addRow(QLabel("Дефект пеномодели:"), self.доработка_дефект_пеномодели_input)
         form_layout3.addRow(QLabel("Лапы:"), self.доработка_лапы_input)
@@ -295,7 +301,9 @@ class ControlForm(QWidget):
         self.окончательный_брак_вырыв_input = QLineEdit(self)
         self.окончательный_брак_скол_input = QLineEdit(self)
         self.окончательный_брак_слом_input = QLineEdit(self)
-        self.окончательный_брак_зарез_input = QLineEdit(self)
+        # Заменяем старое поле зареза на два новых
+        self.окончательный_брак_зарез_литейный_input = QLineEdit(self)
+        self.окончательный_брак_зарез_пеномодельный_input = QLineEdit(self)
         self.окончательный_брак_нарушение_геометрии_input = QLineEdit(self)
         self.окончательный_брак_рыхлота_input = QLineEdit(self)
         self.окончательный_брак_непроклей_input = QLineEdit(self)
@@ -317,7 +325,8 @@ class ControlForm(QWidget):
         form_layout4.addRow(QLabel("Вырыв:"), self.окончательный_брак_вырыв_input)
         form_layout4.addRow(QLabel("Скол:"), self.окончательный_брак_скол_input)
         form_layout4.addRow(QLabel("Слом:"), self.окончательный_брак_слом_input)
-        form_layout4.addRow(QLabel("Зарез:"), self.окончательный_брак_зарез_input)
+        form_layout4.addRow(QLabel("Зарез литейный:"), self.окончательный_брак_зарез_литейный_input)
+        form_layout4.addRow(QLabel("Зарез пеномодельный:"), self.окончательный_брак_зарез_пеномодельный_input)
         form_layout4.addRow(QLabel("Нарушение геометрии:"), self.окончательный_брак_нарушение_геометрии_input)
         form_layout4.addRow(QLabel("Рыхлота:"), self.окончательный_брак_рыхлота_input)
         form_layout4.addRow(QLabel("Непроклей:"), self.окончательный_брак_непроклей_input)
@@ -383,7 +392,8 @@ class ControlForm(QWidget):
         # Подключение события изменения для расчета контроль_принято
         self.контроль_отлито_input.textChanged.connect(self.calculate_control_prinato)
         self.второй_сорт_раковины_input.textChanged.connect(self.calculate_control_prinato)
-        self.второй_сорт_зарез_input.textChanged.connect(self.calculate_control_prinato)
+        self.второй_сорт_зарез_литейный_input.textChanged.connect(self.calculate_control_prinato)
+        self.второй_сорт_зарез_пеномодельный_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_раковины_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_зарез_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_несоответствие_размеров_input.textChanged.connect(self.calculate_control_prinato)
@@ -394,7 +404,8 @@ class ControlForm(QWidget):
         self.доработка_облой_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_песок_на_поверхности_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_песок_в_резьбе_input.textChanged.connect(self.calculate_control_prinato)
-        self.доработка_клей_input.textChanged.connect(self.calculate_control_prinato)
+        self.доработка_клей_подтёк_input.textChanged.connect(self.calculate_control_prinato)
+        self.доработка_клей_по_шву_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_коробление_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_дефект_пеномодели_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_лапы_input.textChanged.connect(self.calculate_control_prinato)
@@ -402,27 +413,28 @@ class ControlForm(QWidget):
         self.доработка_корона_input.textChanged.connect(self.calculate_control_prinato)
         self.доработка_смещение_input.textChanged.connect(self.calculate_control_prinato)
         self.окончательный_брак_недолив_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_вырыв_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_зарез_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_коробление_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_наплыв_металла_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_нарушение_геометрии_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_нарушение_маркировки_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_непроклей_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_неслитина_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_несоответствие_внешнего_вида_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_несоответствие_размеров_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_пеномодель_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_пористость_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_пригар_песка_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_прочее_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_рыхлота_input.textChanged.connect(self.calculate_control_prinato)
         self.окончательный_брак_раковины_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_скол_input.textChanged.connect(self.calculate_control_prinato)
-        self.окончательный_брак_слом_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_коробление_input.textChanged.connect(self.calculate_control_prinato)
         self.окончательный_брак_спай_input.textChanged.connect(self.calculate_control_prinato)
         self.окончательный_брак_трещины_input.textChanged.connect(self.calculate_control_prinato)
-        
+        self.окончательный_брак_пригар_песка_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_пористость_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_вырыв_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_скол_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_слом_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_зарез_литейный_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_зарез_пеномодельный_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_нарушение_геометрии_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_рыхлота_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_непроклей_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_пеномодель_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_наплыв_металла_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_несоответствие_размеров_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_несоответствие_внешнего_вида_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_нарушение_маркировки_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_неслитина_input.textChanged.connect(self.calculate_control_prinato)
+        self.окончательный_брак_прочее_input.textChanged.connect(self.calculate_control_prinato)
+
         # Добавляем анимацию при наведении на группы
         for group in [group_box1, group_box2, group_box3, group_box4]:
             group.enterEvent = lambda e, g=group: self.animate_group_hover(g, True)
@@ -440,7 +452,8 @@ class ControlForm(QWidget):
         numeric_inputs = [
             self.контроль_отлито_input,
             self.второй_сорт_раковины_input,
-            self.второй_сорт_зарез_input,
+            self.второй_сорт_зарез_литейный_input,
+            self.второй_сорт_зарез_пеномодельный_input,
             self.доработка_раковины_input,
             self.доработка_зарез_input,
             self.доработка_несоответствие_размеров_input,
@@ -451,7 +464,8 @@ class ControlForm(QWidget):
             self.доработка_облой_input,
             self.доработка_песок_на_поверхности_input,
             self.доработка_песок_в_резьбе_input,
-            self.доработка_клей_input,
+            self.доработка_клей_подтёк_input,
+            self.доработка_клей_по_шву_input,
             self.доработка_коробление_input,
             self.доработка_дефект_пеномодели_input,
             self.доработка_лапы_input,
@@ -460,7 +474,8 @@ class ControlForm(QWidget):
             self.доработка_смещение_input,
             self.окончательный_брак_недолив_input,
             self.окончательный_брак_вырыв_input,
-            self.окончательный_брак_зарез_input,
+            self.окончательный_брак_зарез_литейный_input,
+            self.окончательный_брак_зарез_пеномодельный_input,
             self.окончательный_брак_коробление_input,
             self.окончательный_брак_наплыв_металла_input,
             self.окончательный_брак_нарушение_геометрии_input,
@@ -499,7 +514,8 @@ class ControlForm(QWidget):
             self.контролер2_input,
             self.контролер3_input,
             self.второй_сорт_раковины_input,
-            self.второй_сорт_зарез_input,
+            self.второй_сорт_зарез_литейный_input,
+            self.второй_сорт_зарез_пеномодельный_input,
             self.доработка_несоответствие_размеров_input,
             self.доработка_несоответствие_внешнего_вида_input,
             self.доработка_наплыв_металла_input,
@@ -508,7 +524,8 @@ class ControlForm(QWidget):
             self.доработка_облой_input,
             self.доработка_песок_на_поверхности_input,
             self.доработка_песок_в_резьбе_input,
-            self.доработка_клей_input,
+            self.доработка_клей_подтёк_input,
+            self.доработка_клей_по_шву_input,
             self.доработка_коробление_input,
             self.доработка_дефект_пеномодели_input,
             self.доработка_лапы_input,
@@ -525,7 +542,8 @@ class ControlForm(QWidget):
             self.окончательный_брак_вырыв_input,
             self.окончательный_брак_скол_input,
             self.окончательный_брак_слом_input,
-            self.окончательный_брак_зарез_input,
+            self.окончательный_брак_зарез_литейный_input,
+            self.окончательный_брак_зарез_пеномодельный_input,
             self.окончательный_брак_нарушение_геометрии_input,
             self.окончательный_брак_рыхлота_input,
             self.окончательный_брак_непроклей_input,
@@ -637,7 +655,8 @@ class ControlForm(QWidget):
         try:
             контроль_отлито = int(self.контроль_отлито_input.text() or 0)
             второй_сорт_раковины = int(self.второй_сорт_раковины_input.text() or 0)
-            второй_сорт_зарез = int(self.второй_сорт_зарез_input.text() or 0)
+            второй_сорт_зарез_литейный = int(self.второй_сорт_зарез_литейный_input.text() or 0)
+            второй_сорт_зарез_пеномодельный = int(self.второй_сорт_зарез_пеномодельный_input.text() or 0)
             доработка_раковины = int(self.доработка_раковины_input.text() or 0)
             доработка_зарез = int(self.доработка_зарез_input.text() or 0)
             доработка_несоответствие_размеров = int(self.доработка_несоответствие_размеров_input.text() or 0)
@@ -648,7 +667,8 @@ class ControlForm(QWidget):
             доработка_облой = int(self.доработка_облой_input.text() or 0)
             доработка_песок_на_поверхности = int(self.доработка_песок_на_поверхности_input.text() or 0)
             доработка_песок_в_резьбе = int(self.доработка_песок_в_резьбе_input.text() or 0)
-            доработка_клей = int(self.доработка_клей_input.text() or 0)
+            доработка_клей_подтёк = int(self.доработка_клей_подтёк_input.text() or 0)
+            доработка_клей_по_шву = int(self.доработка_клей_по_шву_input.text() or 0)
             доработка_коробление = int(self.доработка_коробление_input.text() or 0)
             доработка_дефект_пеномодели = int(self.доработка_дефект_пеномодели_input.text() or 0)
             доработка_лапы = int(self.доработка_лапы_input.text() or 0)
@@ -667,7 +687,8 @@ class ControlForm(QWidget):
             окончательный_брак_вырыв = int(self.окончательный_брак_вырыв_input.text() or 0)
             окончательный_брак_скол = int(self.окончательный_брак_скол_input.text() or 0)
             окончательный_брак_слом = int(self.окончательный_брак_слом_input.text() or 0)
-            окончательный_брак_зарез = int(self.окончательный_брак_зарез_input.text() or 0)
+            окончательный_брак_зарез_литейный = int(self.окончательный_брак_зарез_литейный_input.text() or 0)
+            окончательный_брак_зарез_пеномодельный = int(self.окончательный_брак_зарез_пеномодельный_input.text() or 0)
             окончательный_брак_нарушение_геометрии = int(self.окончательный_брак_нарушение_геометрии_input.text() or 0)
             окончательный_брак_рыхлота = int(self.окончательный_брак_рыхлота_input.text() or 0)
             окончательный_брак_непроклей = int(self.окончательный_брак_непроклей_input.text() or 0)
@@ -681,13 +702,14 @@ class ControlForm(QWidget):
 
             # Расчет контроль_принято
             контроль_принято = контроль_отлито - (
-                второй_сорт_раковины + второй_сорт_зарез +
+                второй_сорт_раковины + второй_сорт_зарез_литейный + второй_сорт_зарез_пеномодельный +
                 доработка_раковины + доработка_зарез +
                 доработка_несоответствие_размеров + доработка_несоответствие_внешнего_вида +
                 доработка_наплыв_металла + доработка_прорыв_металла +
                 доработка_вырыв + доработка_облой +
                 доработка_песок_на_поверхности + доработка_песок_в_резьбе +
-                доработка_клей + доработка_коробление +
+                доработка_клей_подтёк + доработка_клей_по_шву +
+                доработка_коробление +
                 доработка_дефект_пеномодели + доработка_лапы +
                 доработка_питатель + доработка_корона +
                 доработка_смещение + окончательный_брак_недолив + окончательный_брак_раковины +
@@ -695,7 +717,8 @@ class ControlForm(QWidget):
                 окончательный_брак_трещины + окончательный_брак_пригар_песка +
                 окончательный_брак_пористость + окончательный_брак_вырыв +
                 окончательный_брак_скол + окончательный_брак_слом +
-                окончательный_брак_зарез + окончательный_брак_нарушение_геометрии +
+                окончательный_брак_зарез_литейный + окончательный_брак_зарез_пеномодельный +
+                окончательный_брак_нарушение_геометрии +
                 окончательный_брак_рыхлота + окончательный_брак_непроклей +
                 окончательный_брак_пеномодель + окончательный_брак_наплыв_металла +
                 окончательный_брак_несоответствие_размеров + окончательный_брак_несоответствие_внешнего_вида +
@@ -725,7 +748,8 @@ class ControlForm(QWidget):
             окончательный_брак_поля = {
                 'Окончательный_брак_недолив': self.окончательный_брак_недолив_input.text(),
                 'Окончательный_брак_вырыв': self.окончательный_брак_вырыв_input.text(),
-                'Окончательный_брак_зарез': self.окончательный_брак_зарез_input.text(),
+                'Окончательный_брак_зарез_литейный': self.окончательный_брак_зарез_литейный_input.text(),
+                'Окончательный_брак_зарез_пеномодельный': self.окончательный_брак_зарез_пеномодельный_input.text(),
                 'Окончательный_брак_коробление': self.окончательный_брак_коробление_input.text(),
                 'Окончательный_брак_наплыв_металла': self.окончательный_брак_наплыв_металла_input.text(),
                 'Окончательный_брак_нарушение_геометрии': self.окончательный_брак_нарушение_геометрии_input.text(),
@@ -755,7 +779,8 @@ class ControlForm(QWidget):
                 self.контролер1_input.currentText(),
                 self.контролер2_input.currentText(),
                 self.второй_сорт_раковины_input.text(),
-                self.второй_сорт_зарез_input.text(),
+                self.второй_сорт_зарез_литейный_input.text(),
+                self.второй_сорт_зарез_пеномодельный_input.text(),
                 self.доработка_раковины_input.text(),
                 self.доработка_зарез_input.text(),
                 self.доработка_несоответствие_размеров_input.text(),
@@ -766,7 +791,8 @@ class ControlForm(QWidget):
                 self.доработка_облой_input.text(),
                 self.доработка_песок_на_поверхности_input.text(),
                 self.доработка_песок_в_резьбе_input.text(),
-                self.доработка_клей_input.text(),
+                self.доработка_клей_подтёк_input.text(),
+                self.доработка_клей_по_шву_input.text(),
                 self.доработка_коробление_input.text(),
                 self.доработка_дефект_пеномодели_input.text(),
                 self.доработка_лапы_input.text(),
@@ -779,13 +805,14 @@ class ControlForm(QWidget):
             headers = [
                 'Номер_плавки', 'Контроль_отлито', 'Контроль_принято',
                 'Контроль_дата_приемки', 'Контролер1', 'Контролер2',
-                'Второй_сорт_раковины', 'Второй_сорт_зарез',
+                'Второй_сорт_раковины', 'Второй_сорт_зарез_литейный', 'Второй_сорт_зарез_пеномодельный',
                 'Доработка_раковины', 'Доработка_зарез',
                 'Доработка_несоответствие_размеров', 'Доработка_несоответствие_внешнего_вида',
                 'Доработка_наплыв_металла', 'Доработка_прорыв_металла',
                 'Доработка_вырыв', 'Доработка_облой',
                 'Доработка_песок_на_поверхности', 'Доработка_песок_в_резьбе',
-                'Доработка_клей', 'Доработка_коробление',
+                'Доработка_клей_подтёк', 'Доработка_клей_по_шву',
+                'Доработка_коробление',
                 'Доработка_дефект_пеномодели', 'Доработка_лапы',
                 'Доработка_питатель', 'Доработка_корона',
                 'Доработка_смещение',
@@ -794,7 +821,8 @@ class ControlForm(QWidget):
             # Добавляем заголовки окончательного брака в нужном порядке
             headers.extend([
                 'Окончательный_брак_недолив', 'Окончательный_брак_вырыв',
-                'Окончательный_брак_зарез', 'Окончательный_брак_коробление',
+                'Окончательный_брак_зарез_литейный', 'Окончательный_брак_зарез_пеномодельный', 
+                'Окончательный_брак_коробление',
                 'Окончательный_брак_наплыв_металла', 'Окончательный_брак_нарушение_геометрии',
                 'Окончательный_брак_нарушение_маркировки', 'Окончательный_брак_непроклей',
                 'Окончательный_брак_неслитина', 'Окончательный_брак_несоответствие_внешнего_вида',
@@ -807,7 +835,7 @@ class ControlForm(QWidget):
             ])
 
             # Добавляем данные окончательного брака в том же порядке, что и заголовки
-            for header in headers[25:46]:  # Используем точный диапазон для полей окончательного брака
+            for header in headers[27:49]:  # Используем точный диапазон для полей окончательного брака
                 data.append(окончательный_брак_поля[header])
 
             # Добавляем Контролер3 в конец
@@ -866,7 +894,8 @@ class ControlForm(QWidget):
 
         # Очистка полей второго сорта
         self.второй_сорт_раковины_input.setText('')
-        self.второй_сорт_зарез_input.setText('')
+        self.второй_сорт_зарез_литейный_input.setText('')
+        self.второй_сорт_зарез_пеномодельный_input.setText('')
 
         # Очистка полей доработки
         self.доработка_раковины_input.setText('')
@@ -879,7 +908,8 @@ class ControlForm(QWidget):
         self.доработка_облой_input.setText('')
         self.доработка_песок_на_поверхности_input.setText('')
         self.доработка_песок_в_резьбе_input.setText('')
-        self.доработка_клей_input.setText('')
+        self.доработка_клей_подтёк_input.setText('')
+        self.доработка_клей_по_шву_input.setText('')
         self.доработка_коробление_input.setText('')
         self.доработка_дефект_пеномодели_input.setText('')
         self.доработка_лапы_input.setText('')
@@ -898,7 +928,8 @@ class ControlForm(QWidget):
         self.окончательный_брак_вырыв_input.setText('')
         self.окончательный_брак_скол_input.setText('')
         self.окончательный_брак_слом_input.setText('')
-        self.окончательный_брак_зарез_input.setText('')
+        self.окончательный_брак_зарез_литейный_input.setText('')
+        self.окончательный_брак_зарез_пеномодельный_input.setText('')
         self.окончательный_брак_нарушение_геометрии_input.setText('')
         self.окончательный_брак_рыхлота_input.setText('')
         self.окончательный_брак_непроклей_input.setText('')
