@@ -146,6 +146,22 @@ class ControlForm(QWidget):
             }
         """)
         
+        # Добавляем поле для отображения номера кластера (только для чтения)
+        self.номер_кластера_input = QLineEdit(self)
+        self.номер_кластера_input.setReadOnly(True)  # Только для чтения
+        self.номер_кластера_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #44475a;
+                color: #f8f8f2;
+                border: 1px solid #6272a4;
+                border-radius: 2px;
+                padding: 3px;
+                min-width: 120px;
+                max-width: 150px;
+                height: 20px;
+            }
+        """)
+        
         # Список участников
         persons = [
             "Елхова", "Лабуткина", "Рябова", "Улитина"            
@@ -197,6 +213,7 @@ class ControlForm(QWidget):
         form_layout1.addRow(QLabel("Дата приемки:"), self.контроль_дата_приемки_input)
         form_layout1.addRow(QLabel("Номер плавки:"), self.номер_плавки_input)
         form_layout1.addRow(QLabel("Наименование отливки:"), self.наименование_отливки_input)
+        form_layout1.addRow(QLabel("Номер кластера:"), self.номер_кластера_input)
         form_layout1.addRow(QLabel("Отлито, шт.:"), self.контроль_отлито_input)
         form_layout1.addRow(QLabel("Принято, шт.:"), self.контроль_принято_input)
         form_layout1.addRow(QLabel("Контролер 1:"), self.контролер1_input)
@@ -622,11 +639,12 @@ class ControlForm(QWidget):
             QMessageBox.warning(self, "Ошибка", f"Ошибка при загрузке номеров плавок: {str(e)}")
 
     def update_наименование_отливки(self, select_number=None):
-        """Обновляет поле наименования отливки на основе выбранного номера плавки"""
+        """Обновляет поле наименования отливки и номера кластера на основе выбранного номера плавки"""
         try:
             if not hasattr(self, 'df_plavka') or self.df_plavka is None:
                 if not os.path.exists('plavka.xlsx'):
                     self.наименование_отливки_input.clear()
+                    self.номер_кластера_input.clear()
                     return
                 # Загружаем данные заново, если они не загружены
                 self.df_plavka = pd.read_excel('plavka.xlsx')
@@ -634,22 +652,37 @@ class ControlForm(QWidget):
             if select_number is None:
                 select_number = self.номер_плавки_input.currentText()
 
-            # Если номер плавки пустой, очищаем поле наименования
+            # Если номер плавки пустой, очищаем поля
             if not select_number:
                 self.наименование_отливки_input.clear()
+                self.номер_кластера_input.clear()
                 return
 
-            # Ищем соответствующее наименование
+            # Ищем соответствующие значения
             mask = self.df_plavka['Учетный_номер'].astype(str) == str(select_number)
             if mask.any():
+                # Получаем наименование отливки
                 наименование = self.df_plavka.loc[mask, 'Наименование_отливки'].iloc[0]
                 self.наименование_отливки_input.setText(str(наименование))
+                
+                # Получаем номер кластера
+                if 'Номер_кластера' in self.df_plavka.columns:
+                    номер_кластера = self.df_plavka.loc[mask, 'Номер_кластера'].iloc[0]
+                    # Проверяем, что номер кластера не NaN и не None
+                    if pd.notna(номер_кластера):
+                        self.номер_кластера_input.setText(str(номер_кластера))
+                    else:
+                        self.номер_кластера_input.setText("")
+                else:
+                    self.номер_кластера_input.setText("")
             else:
                 self.наименование_отливки_input.clear()
+                self.номер_кластера_input.clear()
                 
         except Exception as e:
             self.наименование_отливки_input.clear()
-            QMessageBox.warning(self, "Ошибка", f"Ошибка при обновлении наименования: {str(e)}")
+            self.номер_кластера_input.clear()
+            QMessageBox.warning(self, "Ошибка", f"Ошибка при обновлении данных: {str(e)}")
 
     def calculate_control_prinato(self):
         try:
@@ -941,8 +974,9 @@ class ControlForm(QWidget):
         self.окончательный_брак_неслитина_input.setText('')
         self.окончательный_брак_прочее_input.setText('')
 
-        # Обновляем наименование отливки с пустым значением
-        self.update_наименование_отливки('')
+        # Обновляем поля с пустым значением
+        self.наименование_отливки_input.setText('')
+        self.номер_кластера_input.setText('')
 
     def animate_group_hover(self, group, hover_in):
         if not hasattr(self, 'animations'):
