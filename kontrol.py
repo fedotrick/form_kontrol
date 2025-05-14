@@ -803,6 +803,22 @@ class ControlForm(QWidget):
                 'Окончательный_брак_трещины': self.окончательный_брак_трещины_input.text(),
             }
 
+            # Заголовки для базовых данных
+            headers = [
+                'Номер_плавки', 'Контроль_отлито', 'Контроль_принято',
+                'Контроль_дата_приемки', 'Контролер1', 'Контролер2', 'Контролер3',
+                'Второй_сорт_раковины', 'Второй_сорт_зарез_литейный', 'Второй_сорт_зарез_пеномодельный',
+                'Доработка_несоответствие_размеров', 'Доработка_несоответствие_внешнего_вида',
+                'Доработка_наплыв_металла', 'Доработка_прорыв_металла',
+                'Доработка_вырыв', 'Доработка_облой',
+                'Доработка_песок_на_поверхности', 'Доработка_песок_в_резьбе',
+                'Доработка_клей_подтёк', 'Доработка_клей_по_шву',
+                'Доработка_коробление',
+                'Доработка_дефект_пеномодели', 'Доработка_лапы',
+                'Доработка_питатель', 'Доработка_корона',
+                'Доработка_смещение',
+            ]
+
             # Собираем базовые данные в список
             data = [
                 self.номер_плавки_input.currentText(),
@@ -811,11 +827,10 @@ class ControlForm(QWidget):
                 self.контроль_дата_приемки_input.date().toString("dd.MM.yyyy"),
                 self.контролер1_input.currentText(),
                 self.контролер2_input.currentText(),
+                self.контролер3_input.currentText(),
                 self.второй_сорт_раковины_input.text(),
                 self.второй_сорт_зарез_литейный_input.text(),
                 self.второй_сорт_зарез_пеномодельный_input.text(),
-                self.доработка_раковины_input.text(),
-                self.доработка_зарез_input.text(),
                 self.доработка_несоответствие_размеров_input.text(),
                 self.доработка_несоответствие_внешнего_вида_input.text(),
                 self.доработка_наплыв_металла_input.text(),
@@ -832,23 +847,6 @@ class ControlForm(QWidget):
                 self.доработка_питатель_input.text(),
                 self.доработка_корона_input.text(),
                 self.доработка_смещение_input.text(),
-            ]
-
-            # Заголовки для базовых данных
-            headers = [
-                'Номер_плавки', 'Контроль_отлито', 'Контроль_принято',
-                'Контроль_дата_приемки', 'Контролер1', 'Контролер2',
-                'Второй_сорт_раковины', 'Второй_сорт_зарез_литейный', 'Второй_сорт_зарез_пеномодельный',
-                'Доработка_раковины', 'Доработка_зарез',
-                'Доработка_несоответствие_размеров', 'Доработка_несоответствие_внешнего_вида',
-                'Доработка_наплыв_металла', 'Доработка_прорыв_металла',
-                'Доработка_вырыв', 'Доработка_облой',
-                'Доработка_песок_на_поверхности', 'Доработка_песок_в_резьбе',
-                'Доработка_клей_подтёк', 'Доработка_клей_по_шву',
-                'Доработка_коробление',
-                'Доработка_дефект_пеномодели', 'Доработка_лапы',
-                'Доработка_питатель', 'Доработка_корона',
-                'Доработка_смещение',
             ]
 
             # Добавляем заголовки окончательного брака в нужном порядке
@@ -868,16 +866,37 @@ class ControlForm(QWidget):
             ])
 
             # Добавляем данные окончательного брака в том же порядке, что и заголовки
-            for header in headers[27:49]:  # Используем точный диапазон для полей окончательного брака
+            for header in headers[26:]:  # Используем правильный диапазон для полей окончательного брака
                 data.append(окончательный_брак_поля[header])
 
-            # Добавляем Контролер3 в конец
-            headers.append('Контролер3')
-            data.append(self.контролер3_input.currentText())
-
             if os.path.exists('control.xlsx'):
-                wb = load_workbook('control.xlsx')
-                ws = wb.active
+                # Проверяем структуру существующей таблицы
+                df_existing = pd.read_excel('control.xlsx')
+                existing_columns = df_existing.columns.tolist()
+                
+                # Проверяем, есть ли дополнительные столбцы в headers, которых нет в existing_columns
+                missing_columns = [col for col in headers if col not in existing_columns]
+                
+                if missing_columns:
+                    # Загружаем существующий файл
+                    wb = load_workbook('control.xlsx')
+                    ws = wb.active
+                    
+                    # Добавляем недостающие заголовки
+                    for col_idx, col_name in enumerate(missing_columns, start=len(existing_columns) + 1):
+                        ws.cell(row=1, column=col_idx, value=col_name)
+                    
+                    # Сохраняем обновленную структуру
+                    wb.save('control.xlsx')
+                    wb.close()
+                    
+                    # Перезагружаем для дальнейшей работы
+                    wb = load_workbook('control.xlsx')
+                    ws = wb.active
+                else:
+                    # Если все столбцы есть, просто загружаем файл
+                    wb = load_workbook('control.xlsx')
+                    ws = wb.active
             else:
                 wb = Workbook()
                 ws = wb.active
@@ -887,11 +906,29 @@ class ControlForm(QWidget):
 
             # Добавляем новую строку данных
             next_row = ws.max_row + 1
-            for col, value in enumerate(data, start=1):
-                cell = ws.cell(row=next_row, column=col)
-                cell.value = value
-                if col == 4:  # Колонка D (дата)
-                    cell.number_format = 'DD.MM.YYYY'
+            
+            # Если файл существует и есть данные
+            if os.path.exists('control.xlsx') and next_row > 2:
+                # Мэппим данные к существующим заголовкам
+                df_existing = pd.read_excel('control.xlsx')
+                existing_columns = df_existing.columns.tolist()
+                
+                for col, header in enumerate(existing_columns, start=1):
+                    if header in headers:
+                        # Находим индекс этого заголовка в нашем массиве
+                        data_idx = headers.index(header)
+                        if data_idx < len(data):
+                            cell = ws.cell(row=next_row, column=col)
+                            cell.value = data[data_idx]
+                            if col == 4:  # Колонка D (дата)
+                                cell.number_format = 'DD.MM.YYYY'
+            else:
+                # Для нового файла просто записываем последовательно
+                for col, value in enumerate(data, start=1):
+                    cell = ws.cell(row=next_row, column=col)
+                    cell.value = value
+                    if col == 4:  # Колонка D (дата)
+                        cell.number_format = 'DD.MM.YYYY'
 
             # Применяем формат даты ко всем ячейкам в колонке D
             for row in range(2, ws.max_row + 1):
