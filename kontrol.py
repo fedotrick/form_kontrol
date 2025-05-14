@@ -690,8 +690,9 @@ class ControlForm(QWidget):
             второй_сорт_раковины = int(self.второй_сорт_раковины_input.text() or 0)
             второй_сорт_зарез_литейный = int(self.второй_сорт_зарез_литейный_input.text() or 0)
             второй_сорт_зарез_пеномодельный = int(self.второй_сорт_зарез_пеномодельный_input.text() or 0)
-            доработка_раковины = int(self.доработка_раковины_input.text() or 0)
-            доработка_зарез = int(self.доработка_зарез_input.text() or 0)
+            # Убираем скрытые поля из расчетов
+            # доработка_раковины = int(self.доработка_раковины_input.text() or 0)
+            # доработка_зарез = int(self.доработка_зарез_input.text() or 0)
             доработка_несоответствие_размеров = int(self.доработка_несоответствие_размеров_input.text() or 0)
             доработка_несоответствие_внешнего_вида = int(self.доработка_несоответствие_внешнего_вида_input.text() or 0)
             доработка_наплыв_металла = int(self.доработка_наплыв_металла_input.text() or 0)
@@ -733,10 +734,10 @@ class ControlForm(QWidget):
             окончательный_брак_неслитина = int(self.окончательный_брак_неслитина_input.text() or 0)
             окончательный_брак_прочее = int(self.окончательный_брак_прочее_input.text() or 0)
 
-            # Расчет контроль_принято
+            # Расчет контроль_принято (убираем скрытые поля из расчета)
             контроль_принято = контроль_отлито - (
                 второй_сорт_раковины + второй_сорт_зарез_литейный + второй_сорт_зарез_пеномодельный +
-                доработка_раковины + доработка_зарез +
+                # доработка_раковины + доработка_зарез +
                 доработка_несоответствие_размеров + доработка_несоответствие_внешнего_вида +
                 доработка_наплыв_металла + доработка_прорыв_металла +
                 доработка_вырыв + доработка_облой +
@@ -877,26 +878,15 @@ class ControlForm(QWidget):
                 # Проверяем, есть ли дополнительные столбцы в headers, которых нет в existing_columns
                 missing_columns = [col for col in headers if col not in existing_columns]
                 
+                # Загружаем файл для работы
+                wb = load_workbook('control.xlsx')
+                ws = wb.active
+                
+                # Добавляем недостающие заголовки, если они есть
                 if missing_columns:
-                    # Загружаем существующий файл
-                    wb = load_workbook('control.xlsx')
-                    ws = wb.active
-                    
-                    # Добавляем недостающие заголовки
-                    for col_idx, col_name in enumerate(missing_columns, start=len(existing_columns) + 1):
+                    for i, col_name in enumerate(missing_columns):
+                        col_idx = len(existing_columns) + 1 + i
                         ws.cell(row=1, column=col_idx, value=col_name)
-                    
-                    # Сохраняем обновленную структуру
-                    wb.save('control.xlsx')
-                    wb.close()
-                    
-                    # Перезагружаем для дальнейшей работы
-                    wb = load_workbook('control.xlsx')
-                    ws = wb.active
-                else:
-                    # Если все столбцы есть, просто загружаем файл
-                    wb = load_workbook('control.xlsx')
-                    ws = wb.active
             else:
                 wb = Workbook()
                 ws = wb.active
@@ -910,8 +900,7 @@ class ControlForm(QWidget):
             # Если файл существует и есть данные
             if os.path.exists('control.xlsx') and next_row > 2:
                 # Мэппим данные к существующим заголовкам
-                df_existing = pd.read_excel('control.xlsx')
-                existing_columns = df_existing.columns.tolist()
+                existing_columns = [ws.cell(row=1, column=col).value for col in range(1, ws.max_column + 1)]
                 
                 for col, header in enumerate(existing_columns, start=1):
                     if header in headers:
@@ -920,7 +909,7 @@ class ControlForm(QWidget):
                         if data_idx < len(data):
                             cell = ws.cell(row=next_row, column=col)
                             cell.value = data[data_idx]
-                            if col == 4:  # Колонка D (дата)
+                            if header == 'Контроль_дата_приемки':  # Форматирование даты
                                 cell.number_format = 'DD.MM.YYYY'
             else:
                 # Для нового файла просто записываем последовательно
@@ -930,10 +919,17 @@ class ControlForm(QWidget):
                     if col == 4:  # Колонка D (дата)
                         cell.number_format = 'DD.MM.YYYY'
 
-            # Применяем формат даты ко всем ячейкам в колонке D
-            for row in range(2, ws.max_row + 1):
-                cell = ws.cell(row=row, column=4)
-                cell.number_format = 'DD.MM.YYYY'
+            # Применяем формат даты ко всем ячейкам в колонке даты
+            date_col = None
+            for col in range(1, ws.max_column + 1):
+                if ws.cell(row=1, column=col).value == 'Контроль_дата_приемки':
+                    date_col = col
+                    break
+                    
+            if date_col:
+                for row in range(2, ws.max_row + 1):
+                    cell = ws.cell(row=row, column=date_col)
+                    cell.number_format = 'DD.MM.YYYY'
 
             wb.save('control.xlsx')
             wb.close()
