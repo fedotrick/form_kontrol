@@ -1084,11 +1084,12 @@ class ControlForm(QWidget):
                                          f"Это может занять некоторое время.")
                     
                     if report_type == 'daily':
-                        # Сначала генерируем сводный отчет
-                        summary_report_file = report_generator.generate_summary_report(selected_date)
-                        # Затем создаем ежедневный отчет на его основе
-                        daily_report_file = report_generator.generate_daily_report(selected_date, summary_report_file)
-                        QMessageBox.information(self, "Успех", f"Отчет сохранен в файл: {daily_report_file}")
+                        # Генерируем ежедневный отчет напрямую используя ReportHelper
+                        daily_report_file = report_generator.generate_daily_report(selected_date)
+                        if daily_report_file:
+                            QMessageBox.information(self, "Успех", f"Ежедневный отчет сохранен в файл: {daily_report_file}")
+                        else:
+                            QMessageBox.warning(self, "Предупреждение", "Отчет был создан с ошибками или предупреждениями.")
                     elif report_type == 'summary':
                         # Генерируем обычный сводный отчет
                         summary_report_file = report_generator.generate_summary_report(selected_date)
@@ -1357,8 +1358,9 @@ class ReportDialog(QDialog):
         info_layout = QVBoxLayout()
         
         info_text = QLabel(
-            "• Ежедневный отчет - простой отчет с выделением\n"
-            "   наименований отливок по дате\n"
+            "• Ежедневный отчет - отчет с выделением\n"
+            "   отливок по дате с автоматическим определением\n"
+            "   контролеров и распределением данных\n"
             "• Стандартный сводный отчет - сводная таблица\n"
             "   статистики по отливкам с основными показателями\n"
             "• Полный сводный отчет - детальная статистика по\n"
@@ -1546,239 +1548,45 @@ class ReportGenerator:
                 f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}\n")
     
     def generate_daily_report(self, date_str, summary_report_file=None):
-        """Генерирует ежедневный отчет на основе даты и данных из сводного отчета"""
+        """Генерирует ежедневный отчет с помощью ReportHelper"""
         if not os.path.exists(self.report_file):
             raise FileNotFoundError(f"Файл шаблона {self.report_file} не найден")
         
-        # Проверяем наличие сводного отчета
-        if summary_report_file is None or not os.path.exists(summary_report_file):
-            # Если сводный отчет не указан, пытаемся найти его по дате
-            summary_report_file = f'Сводный_{date_str.replace(".", "-")}.xlsx'
-            if not os.path.exists(summary_report_file):
-                # Если сводный отчет не найден, генерируем его
-                summary_report_file = self.generate_summary_report(date_str)
-        
         try:
-            self.log(f"Формирование ежедневного отчета на основе сводного отчета: {summary_report_file}")
+            self.log(f"Формирование ежедневного отчета на дату: {date_str}")
             
-            # Загружаем данные из сводного отчета через pandas
-            df_summary = pd.read_excel(summary_report_file)
+            # Используем ReportHelper для создания отчета
+            from report_generator_helper import ReportHelper
             
-            # Если данных нет, сообщаем об ошибке
-            if df_summary.empty:
-                raise ValueError(f"В сводном отчете {summary_report_file} нет данных")
+            # Создаем экземпляр ReportHelper с указанным шаблоном
+            helper = ReportHelper(self.report_file)
             
-            self.log(f"Колонки в сводном отчете: {df_summary.columns.tolist()}")
+            # Устанавливаем дату
+            helper.set_date(date_str)
             
-            # Создаем копию шаблона отчета для сохранения результатов
-            report_output = f'Отчет_{date_str.replace(".", "-")}.xlsx'
-            
-            # Копируем оригинальный файл шаблона для сохранения форматирования
-            shutil.copy(self.report_file, report_output)
-            
-            # Загружаем файл отчета
-            wb = load_workbook(report_output)
-            ws = wb.active
-            
-            # Пишем дату в файл (ищем ячейку с "Дата" для заполнения)
-            for row in range(1, 10):
-                for col in range(1, 5):
-                    cell_value = str(ws.cell(row=row, column=col).value or "").lower()
-                    if "дата" in cell_value:
-                        # Проверяем, не является ли целевая ячейка объединенной
-                        target_cell = ws.cell(row=row, column=col+1)
-                        # Проверка типа ячейки - MergedCell указывает на объединенную ячейку
-                        if type(target_cell).__name__ == 'MergedCell':
-                            # Это объединенная ячейка, найдем основную ячейку
-                            # Ищем все объединенные диапазоны
-                            for merged_range in ws.merged_cells.ranges:
-                                if f"{target_cell.coordinate}" in merged_range:
-                                    # Получаем координату верхней левой ячейки диапазона
-                                    main_coord = merged_range.coord.split(':')[0]
-                                    # Записываем значение в основную ячейку диапазона
-                                    ws[main_coord] = date_str
-                                    break
-                        else:
-                            # Это обычная ячейка, можем напрямую изменять значение
-                            target_cell.value = date_str
-                        break
-            
-            # Находим основные блоки данных
-            # Обычно это строки 7 и 18 для заголовков двух таблиц
-            header_row1 = None
-            header_row2 = None
-            
-            for row in range(1, 25):
-                cell_value = str(ws.cell(row=row, column=1).value or "").lower()
-                if "наименование" in cell_value and "отливк" in cell_value:
-                    if header_row1 is None:
-                        header_row1 = row
-                    elif header_row2 is None:
-                        header_row2 = row
-            
-            if header_row1 is None:
-                header_row1 = 7  # Значение по умолчанию
-            if header_row2 is None:
-                header_row2 = 18  # Значение по умолчанию
-                
-            self.log(f"Найдены строки заголовков: {header_row1} и {header_row2}")
-            
-            # Загружаем данные из сводного отчета
-            summary_data = []
+            # Получаем список контролеров из файла control.xlsx
             try:
-                for index, row in df_summary.iterrows():
-                    # Пропускаем пустые строки или строки ИТОГО
-                    if pd.isna(row.iloc[0]) or "ИТОГО" in str(row.iloc[0]).upper():
-                        continue
-                    
-                    summary_data.append(row.to_dict())
+                controllers = helper.get_controllers_from_excel("control.xlsx", date_str)
+                if controllers:
+                    self.log(f"Автоматически извлечены контролеры: {', '.join(controllers)}")
+                    helper.set_controllers(controllers)
+                else:
+                    self.log("Контролеры не найдены в файле")
             except Exception as e:
-                self.log(f"Ошибка при чтении сводного отчета: {str(e)}")
-                
-                # Попробуем загрузить через openpyxl, если pandas не сработал
-                wb_summary = load_workbook(summary_report_file)
-                ws_summary = wb_summary.active
-                
-                # Ищем строку заголовков
-                header_row_summary = 3  # По умолчанию для нового формата
-                for row in range(1, 10):
-                    cell_value = str(ws_summary.cell(row=row, column=1).value or "").lower()
-                    if "наименование" in cell_value and "отливк" in cell_value:
-                        header_row_summary = row
-                        break
-                
-                # Получаем заголовки
-                headers = []
-                for col in range(1, ws_summary.max_column + 1):
-                    headers.append(str(ws_summary.cell(row=header_row_summary, column=col).value or ""))
-                
-                # Собираем данные
-                for row in range(header_row_summary + 1, ws_summary.max_row + 1):
-                    if ws_summary.cell(row=row, column=1).value is None:
-                        continue
-                    
-                    if "ИТОГО" in str(ws_summary.cell(row=row, column=1).value).upper():
-                        continue
-                    
-                    row_data = {}
-                    for col in range(1, len(headers) + 1):
-                        if col <= ws_summary.max_column:
-                            row_data[headers[col-1]] = ws_summary.cell(row=row, column=col).value
-                    
-                    if row_data:
-                        summary_data.append(row_data)
-                
-                wb_summary.close()
+                self.log(f"Ошибка при извлечении контролеров: {str(e)}")
             
-            self.log(f"Прочитано {len(summary_data)} записей из сводного отчета")
+            # Загружаем данные из control.xlsx и заполняем отчет
+            success = helper.load_from_control_xlsx("control.xlsx", date_str)
+            if not success:
+                self.log("Предупреждение: Возникли проблемы при загрузке данных из файла контроля")
             
-            # Заполняем первую таблицу
-            data_row1 = header_row1 + 1
-            for i, data in enumerate(summary_data[:10]):  # Первые 10 записей
-                # Определяем наименование отливки и номера плавок
-                name = None
-                for key in data:
-                    if "наименование" in str(key).lower() and "отливк" in str(key).lower():
-                        name = data[key]
-                        break
-                
-                if not name:
-                    continue
-                
-                # Ищем столбцы для заполнения в первой таблице
-                for col in range(1, ws.max_column + 1):
-                    header = str(ws.cell(row=header_row1, column=col).value or "").lower()
-                    
-                    if "наименование" in header and "отливк" in header:
-                        ws.cell(row=data_row1 + i, column=col).value = name
-                    elif "номер" in header and "плавк" in header:
-                        # Ищем номера плавок в данных
-                        for key in data:
-                            if "номер" in str(key).lower() and "плавк" in str(key).lower():
-                                ws.cell(row=data_row1 + i, column=col).value = data[key]
-                                break
-                    elif "отлито" in header and not any(x in header for x in ["брак", "сорт", "доработк"]):
-                        # Ищем отлито в данных
-                        for key in data:
-                            if "отлито" in str(key).lower() and not any(x in str(key).lower() for x in ["брак", "сорт", "доработк"]):
-                                ws.cell(row=data_row1 + i, column=col).value = data[key]
-                                break
-                    elif "принято" in header and not any(x in header for x in ["брак", "сорт", "доработк"]):
-                        # Ищем принято в данных
-                        for key in data:
-                            if "принято" in str(key).lower() and not any(x in str(key).lower() for x in ["брак", "сорт", "доработк"]):
-                                ws.cell(row=data_row1 + i, column=col).value = data[key]
-                                break
-                    elif "годн" in header:
-                        # Ищем процент годности в данных
-                        for key in data:
-                            if "годн" in str(key).lower():
-                                cell = ws.cell(row=data_row1 + i, column=col)
-                                cell.value = data[key]
-                                cell.number_format = '0.00"%"'
-                                break
+            # Формируем имя выходного файла
+            output_date = date_str.replace(".", "-")
+            report_output = f'Отчет_{output_date}.xlsx'
             
-            # Заполняем вторую таблицу
-            data_row2 = header_row2 + 1
-            for i, data in enumerate(summary_data[10:20]):  # Следующие 10 записей
-                # Определяем наименование отливки и номера плавок
-                name = None
-                for key in data:
-                    if "наименование" in str(key).lower() and "отливк" in str(key).lower():
-                        name = data[key]
-                        break
-                
-                if not name:
-                    continue
-                
-                # Ищем столбцы для заполнения во второй таблице
-                for col in range(1, ws.max_column + 1):
-                    header = str(ws.cell(row=header_row2, column=col).value or "").lower()
-                    
-                    if "наименование" in header and "отливк" in header:
-                        ws.cell(row=data_row2 + i, column=col).value = name
-                    elif "номер" in header and "плавк" in header:
-                        # Ищем номера плавок в данных
-                        for key in data:
-                            if "номер" in str(key).lower() and "плавк" in str(key).lower():
-                                ws.cell(row=data_row2 + i, column=col).value = data[key]
-                                break
-                    elif "отлито" in header and not any(x in header for x in ["брак", "сорт", "доработк"]):
-                        # Ищем отлито в данных
-                        for key in data:
-                            if "отлито" in str(key).lower() and not any(x in str(key).lower() for x in ["брак", "сорт", "доработк"]):
-                                ws.cell(row=data_row2 + i, column=col).value = data[key]
-                                break
-                    elif "принято" in header and not any(x in header for x in ["брак", "сорт", "доработк"]):
-                        # Ищем принято в данных
-                        for key in data:
-                            if "принято" in str(key).lower() and not any(x in str(key).lower() for x in ["брак", "сорт", "доработк"]):
-                                ws.cell(row=data_row2 + i, column=col).value = data[key]
-                                break
-                    elif "годн" in header:
-                        # Ищем процент годности в данных
-                        for key in data:
-                            if "годн" in str(key).lower():
-                                cell = ws.cell(row=data_row2 + i, column=col)
-                                cell.value = data[key]
-                                cell.number_format = '0.00"%"'
-                                break
+            # Сохраняем отчет
+            helper.save(report_output)
             
-            # Устанавливаем форматирование для всех заполненных ячеек
-            for row_start, row_end in [(data_row1, data_row1 + 10), (data_row2, data_row2 + 10)]:
-                for row in range(row_start, row_end):
-                    for col in range(1, ws.max_column + 1):
-                        cell = ws.cell(row=row, column=col)
-                        if cell.value is not None:
-                            # Устанавливаем выравнивание в зависимости от типа данных
-                            if isinstance(cell.value, str) and len(cell.value) > 10:
-                                cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
-                            else:
-                                cell.alignment = Alignment(horizontal='center', vertical='center')
-            
-            # Сохраняем файл
-            wb.save(report_output)
-            wb.close()
             self.log(f"Ежедневный отчет успешно сохранен в файл: {report_output}")
             
             return report_output
@@ -1787,9 +1595,7 @@ class ReportGenerator:
             print(f"ОШИБКА при формировании ежедневного отчета: {str(e)}")
             traceback_str = traceback.format_exc()
             print(traceback_str)
-            self.log(f"ОШИБКА при формировании ежедневного отчета: {str(e)}")
-            self.log(traceback_str)
-            raise Exception(f"Ошибка при формировании ежедневного отчета: {str(e)}")
+            return None
     
     def generate_summary_report(self, date_str):
         """Генерирует сводный отчет по наименованиям отливок"""
