@@ -22,7 +22,7 @@ class ControlForm(QWidget):
         super().__init__()
 
         self.setWindowTitle("Электронный журнал контроля")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(0, 0, 800, 1100)
 
         layout = QVBoxLayout()
         layout.setSpacing(5)
