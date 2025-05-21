@@ -1587,20 +1587,20 @@ class ReportGenerator:
                     if "дата" in cell_value:
                         # Проверяем, не является ли целевая ячейка объединенной
                         target_cell = ws.cell(row=row, column=col+1)
-                        if hasattr(target_cell, 'coordinate'):
-                            # Это не объединенная ячейка, можем напрямую изменять значение
-                            target_cell.value = date_str
-                        else:
-                            # Это объединенная ячейка, найдем основную ячейку и изменим её
+                        # Проверка типа ячейки - MergedCell указывает на объединенную ячейку
+                        if type(target_cell).__name__ == 'MergedCell':
+                            # Это объединенная ячейка, найдем основную ячейку
                             # Ищем все объединенные диапазоны
                             for merged_range in ws.merged_cells.ranges:
-                                if target_cell.coordinate in merged_range:
-                                    # Нашли диапазон, содержащий текущую ячейку
+                                if f"{target_cell.coordinate}" in merged_range:
                                     # Получаем координату верхней левой ячейки диапазона
-                                    main_cell_coord = merged_range.coord.split(':')[0]
+                                    main_coord = merged_range.coord.split(':')[0]
                                     # Записываем значение в основную ячейку диапазона
-                                    ws[main_cell_coord] = date_str
+                                    ws[main_coord] = date_str
                                     break
+                        else:
+                            # Это обычная ячейка, можем напрямую изменять значение
+                            target_cell.value = date_str
                         break
             
             # Находим основные блоки данных
@@ -1628,7 +1628,7 @@ class ReportGenerator:
             try:
                 for index, row in df_summary.iterrows():
                     # Пропускаем пустые строки или строки ИТОГО
-                    if pd.isna(row[0]) or "ИТОГО" in str(row[0]).upper():
+                    if pd.isna(row.iloc[0]) or "ИТОГО" in str(row.iloc[0]).upper():
                         continue
                     
                     summary_data.append(row.to_dict())
