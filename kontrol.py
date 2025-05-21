@@ -1,22 +1,28 @@
 import sys
+import os
 import pandas as pd
+import traceback
+from datetime import datetime, timedelta
+import shutil
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
-    QDateEdit, QPushButton, QMessageBox, QGroupBox, QLabel, QScrollArea, QComboBox, QHBoxLayout, QGraphicsDropShadowEffect
+    QDateEdit, QPushButton, QMessageBox, QGroupBox, QLabel, QScrollArea, QComboBox, QHBoxLayout, QGraphicsDropShadowEffect,
+    QDialog, QCalendarWidget, QRadioButton, QButtonGroup, QFileDialog, QTextBrowser, QTableWidget, QTableWidgetItem,
+    QHeaderView, QTabWidget, QCheckBox, QMainWindow
 )
-from PySide6.QtCore import QDate, Qt, QPropertyAnimation, QEasingCurve, QEvent
+from PySide6.QtCore import QDate, Qt, QPropertyAnimation, QEasingCurve, QEvent, QDateTime, QRegularExpression, QTimer
 from PySide6 import QtGui
-from PySide6.QtGui import QFont, QColor
-import os
+from PySide6.QtGui import QFont, QColor, QRegularExpressionValidator, QIcon, QTextCursor
 from openpyxl import load_workbook, Workbook
-from datetime import datetime, timedelta
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from functools import partial
 
 class ControlForm(QWidget):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Электронный журнал контроля")
-        self.setGeometry(100, 100, 900, 950)
+        self.setGeometry(100, 100, 800, 600)
 
         layout = QVBoxLayout()
         layout.setSpacing(5)
@@ -403,6 +409,27 @@ class ControlForm(QWidget):
 
         # Добавление кнопки в layout
         layout.addWidget(self.save_button)
+        
+        # Добавляем кнопку для формирования отчетов
+        self.report_button = QPushButton("Сформировать отчет", self)
+        self.report_button.setStyleSheet("""
+            QPushButton {
+                background-color: #bd93f9;
+                color: #282a36;
+                font-size: 14px;
+                padding: 12px 30px;
+                font-weight: bold;
+                margin-top: 5px;
+            }
+            QPushButton:hover {
+                background-color: #d6acff;
+            }
+            QPushButton:pressed {
+                background-color: #a775f0;
+            }
+        """)
+        self.report_button.clicked.connect(self.show_report_dialog)
+        layout.addWidget(self.report_button)
 
         self.setLayout(layout)
 
@@ -1040,6 +1067,1519 @@ class ControlForm(QWidget):
             # Сохраняем анимацию
             self.animations.append(animation)
             animation.start()
+
+    def show_report_dialog(self):
+        """Открывает диалог для формирования отчетов"""
+        try:
+            dialog = ReportDialog(self)
+            if dialog.exec():
+                report_type, selected_date = dialog.get_report_data()
+                
+                # Создаем объект генератора отчетов
+                report_generator = ReportGenerator()
+                
+                try:
+                    QMessageBox.information(self, "Информация", 
+                                         f"Формирование отчета - {dialog.get_report_type_name(report_type)} за {selected_date}. "
+                                         f"Это может занять некоторое время.")
+                    
+                    if report_type == 'daily':
+                        # Сначала генерируем сводный отчет
+                        summary_report_file = report_generator.generate_summary_report(selected_date)
+                        # Затем создаем ежедневный отчет на его основе
+                        daily_report_file = report_generator.generate_daily_report(selected_date, summary_report_file)
+                        QMessageBox.information(self, "Успех", f"Отчет сохранен в файл: {daily_report_file}")
+                    elif report_type == 'summary':
+                        # Генерируем обычный сводный отчет
+                        summary_report_file = report_generator.generate_summary_report(selected_date)
+                        QMessageBox.information(self, "Успех", f"Отчет сохранен в файл: {summary_report_file}")
+                    elif report_type == 'full':
+                        # Генерируем полный сводный отчет
+                        full_report_file = report_generator.generate_full_report(selected_date)
+                        QMessageBox.information(self, "Успех", f"Отчет сохранен в файл: {full_report_file}")
+                    elif report_type == 'template':
+                        # Создаем новый шаблон отчета
+                        template_file = report_generator.create_new_report_template()
+                        QMessageBox.information(self, "Успех", f"Шаблон отчета создан в файл: {template_file}")
+                    
+                except Exception as e:
+                    traceback_str = traceback.format_exc()
+                    QMessageBox.critical(self, "Ошибка", f"Не удалось сформировать отчет: {str(e)}")
+                    with open('report_generator.log', 'a', encoding='utf-8') as f:
+                        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ОШИБКА: {str(e)}\n{traceback_str}\n")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при открытии диалога: {str(e)}")
+    
+    def debug_report_file(self, file_path):
+        """Отладочная функция для анализа структуры отчета"""
+        try:
+            # Создаем диалог для отображения информации
+            debug_dialog = QDialog(self)
+            debug_dialog.setWindowTitle(f"Отладка отчета: {os.path.basename(file_path)}")
+            debug_dialog.setGeometry(100, 100, 800, 600)
+            
+            layout = QVBoxLayout(debug_dialog)
+            
+            # Текстовое поле для отображения информации
+            text_browser = QTextBrowser()
+            text_browser.setStyleSheet("""
+                background-color: #1a1b26;
+                color: #f8f8f2;
+                font-family: 'Consolas', 'Courier New';
+                font-size: 11px;
+            """)
+            
+            layout.addWidget(text_browser)
+            
+            # Добавляем информацию о размере файла
+            file_size = os.path.getsize(file_path)
+            text_browser.append(f"Файл: {file_path}")
+            text_browser.append(f"Размер: {file_size} байт")
+            text_browser.append("-" * 50)
+            
+            # Анализируем структуру файла Excel
+            wb = load_workbook(file_path)
+            ws = wb.active
+            
+            text_browser.append(f"Имя листа: {ws.title}")
+            text_browser.append(f"Размеры: {ws.max_row} строк, {ws.max_column} столбцов")
+            text_browser.append("-" * 50)
+            
+            # Ищем заголовки таблицы
+            header_rows = []
+            for row in range(1, min(30, ws.max_row + 1)):
+                has_headers = False
+                for col in range(1, min(10, ws.max_column + 1)):
+                    cell_value = ws.cell(row=row, column=col).value
+                    if cell_value and isinstance(cell_value, str) and any(keyword in cell_value.lower() for keyword in ["дата", "плавк", "отливк", "брак", "сорт"]):
+                        has_headers = True
+                        break
+                if has_headers:
+                    header_rows.append(row)
+            
+            if header_rows:
+                text_browser.append(f"Строки с заголовками: {header_rows}")
+            else:
+                text_browser.append("ВНИМАНИЕ: Не найдены строки с заголовками!")
+            
+            text_browser.append("-" * 50)
+            
+            # Проверяем данные в таблице
+            data_found = False
+            for row in range(1, ws.max_row + 1):
+                row_has_data = False
+                for col in range(1, ws.max_column + 1):
+                    cell_value = ws.cell(row=row, column=col).value
+                    if cell_value is not None and str(cell_value).strip():
+                        row_has_data = True
+                        break
+                
+                if row_has_data:
+                    data_found = True
+                    # Выводим первые несколько ячеек строки
+                    data_preview = []
+                    for col in range(1, min(5, ws.max_column + 1)):
+                        cell_value = ws.cell(row=row, column=col).value
+                        if cell_value is not None:
+                            data_preview.append(str(cell_value))
+                    
+                    text_browser.append(f"Строка {row}: {', '.join(data_preview)}...")
+                    
+                    # Ограничиваем вывод первыми 20 строками с данными
+                    if len(text_browser.toPlainText().split("\n")) > 40:
+                        text_browser.append("...")
+                        break
+            
+            if not data_found:
+                text_browser.append("ВНИМАНИЕ: Данные в таблице не найдены!")
+            
+            # Кнопка "Закрыть"
+            close_button = QPushButton("Закрыть")
+            close_button.clicked.connect(debug_dialog.accept)
+            layout.addWidget(close_button)
+            
+            # Отображаем диалог
+            debug_dialog.exec()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка отладки", f"Ошибка при анализе файла: {str(e)}")
+
+# Класс диалогового окна для формирования отчетов
+class ReportDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Формирование отчета")
+        self.setGeometry(100, 100, 400, 400)
+        
+        # Включаем режим отладки
+        self.debug_mode = True
+        
+        # Задаем темную тему как в основном приложении
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #282a36;
+                color: #f8f8f2;
+                font-family: 'Segoe UI', 'Aptos';
+                font-size: 11px;
+            }
+            
+            QLabel {
+                color: #f8f8f2;
+                padding: 2px;
+            }
+            
+            QRadioButton {
+                color: #f8f8f2;
+                padding: 5px;
+            }
+            
+            QRadioButton::indicator {
+                width: 13px;
+                height: 13px;
+            }
+            
+            QRadioButton::indicator:checked {
+                background-color: #bd93f9;
+                border: 2px solid #f8f8f2;
+                border-radius: 6px;
+            }
+            
+            QPushButton {
+                background-color: #6272a4;
+                color: #f8f8f2;
+                border: none;
+                padding: 8px 15px;
+                border-radius: 2px;
+                height: 30px;
+            }
+            
+            QPushButton:hover {
+                background-color: #bd93f9;
+            }
+            
+            QPushButton:pressed {
+                background-color: #ff79c6;
+            }
+            
+            QCalendarWidget {
+                background-color: #282a36;
+                color: #f8f8f2;
+            }
+            
+            QCalendarWidget QToolButton {
+                color: #f8f8f2;
+                background-color: #44475a;
+                border: none;
+            }
+            
+            QCalendarWidget QMenu {
+                color: #f8f8f2;
+                background-color: #44475a;
+            }
+            
+            QCalendarWidget QSpinBox {
+                color: #f8f8f2;
+                background-color: #44475a;
+                selection-background-color: #6272a4;
+                selection-color: #f8f8f2;
+            }
+            
+            QCalendarWidget QAbstractItemView:enabled {
+                color: #f8f8f2;
+                background-color: #44475a;
+                selection-background-color: #6272a4;
+                selection-color: #f8f8f2;
+            }
+            
+            QCalendarWidget QWidget {
+                alternate-background-color: #44475a;
+            }
+            
+            QGroupBox {
+                border: 1px solid #44475a;
+                border-radius: 4px;
+                margin-top: 0.5em;
+                padding: 8px;
+            }
+            
+            QGroupBox::title {
+                color: #bd93f9;
+            }
+            
+            QTextBrowser {
+                background-color: #1a1b26;
+                color: #f8f8f2;
+                border: 1px solid #6272a4;
+                font-family: 'Consolas', 'Courier New';
+                font-size: 11px;
+            }
+        """)
+        
+        layout = QVBoxLayout(self)
+        
+        # Группа выбора типа отчета
+        report_group = QGroupBox("Тип отчета")
+        report_layout = QVBoxLayout()
+        
+        self.radio_daily = QRadioButton("Ежедневный отчет")
+        self.radio_summary = QRadioButton("Стандартный сводный отчет")
+        self.radio_full = QRadioButton("Полный сводный отчет")
+        self.radio_template = QRadioButton("Создать шаблон полного отчета")
+        
+        self.radio_daily.setChecked(True)
+        
+        report_layout.addWidget(self.radio_daily)
+        report_layout.addWidget(self.radio_summary)
+        report_layout.addWidget(self.radio_full)
+        report_layout.addWidget(self.radio_template)
+        
+        report_group.setLayout(report_layout)
+        layout.addWidget(report_group)
+        
+        # Группа выбора даты
+        self.date_group = QGroupBox("Выбор даты")
+        date_layout = QVBoxLayout()
+        
+        self.calendar = QCalendarWidget()
+        self.calendar.setSelectedDate(QDate.currentDate())
+        self.calendar.setGridVisible(True)
+        self.calendar.setVerticalHeaderFormat(QCalendarWidget.NoVerticalHeader)
+        
+        # Соединяем переключатели типа отчета с управлением видимостью блока даты
+        self.radio_template.toggled.connect(self.toggle_date_visibility)
+        
+        date_layout.addWidget(self.calendar)
+        self.date_group.setLayout(date_layout)
+        layout.addWidget(self.date_group)
+        
+        # Добавляем справочную информацию
+        info_group = QGroupBox("Информация о типах отчетов")
+        info_layout = QVBoxLayout()
+        
+        info_text = QLabel(
+            "• Ежедневный отчет - простой отчет с выделением\n"
+            "   наименований отливок по дате\n"
+            "• Стандартный сводный отчет - сводная таблица\n"
+            "   статистики по отливкам с основными показателями\n"
+            "• Полный сводный отчет - детальная статистика по\n"
+            "   всем типам дефектов, включая редкие варианты\n"
+            "• Шаблон полного отчета - создает пустой шаблон\n"
+            "   для последующего заполнения"
+        )
+        info_text.setStyleSheet("color: #8be9fd; padding: 5px;")
+        
+        info_layout.addWidget(info_text)
+        info_group.setLayout(info_layout)
+        layout.addWidget(info_group)
+        
+        # Добавляем лог для отладки
+        if self.debug_mode:
+            debug_group = QGroupBox("Отладочная информация")
+            debug_layout = QVBoxLayout()
+            
+            self.log_browser = QTextBrowser()
+            self.log_browser.setMaximumHeight(100)
+            
+            debug_layout.addWidget(self.log_browser)
+            debug_group.setLayout(debug_layout)
+            layout.addWidget(debug_group)
+        
+        # Кнопки
+        buttons_layout = QHBoxLayout()
+        
+        self.generate_button = QPushButton("Сформировать")
+        self.generate_button.setStyleSheet("""
+            QPushButton {
+                background-color: #50fa7b;
+                color: #282a36;
+                font-size: 14px;
+                padding: 12px 30px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #69ff94;
+            }
+            QPushButton:pressed {
+                background-color: #41d66b;
+            }
+        """)
+        self.generate_button.clicked.connect(self.validate_and_accept)
+        
+        self.cancel_button = QPushButton("Отмена")
+        self.cancel_button.clicked.connect(self.reject)
+        
+        buttons_layout.addWidget(self.cancel_button)
+        buttons_layout.addWidget(self.generate_button)
+        
+        layout.addLayout(buttons_layout)
+    
+    def toggle_date_visibility(self, checked):
+        """Переключает видимость выбора даты при выборе создания шаблона"""
+        self.date_group.setVisible(not checked)
+    
+    def add_log(self, message):
+        """Добавляет сообщение в отладочный лог"""
+        if self.debug_mode and hasattr(self, 'log_browser'):
+            self.log_browser.append(f"{datetime.now().strftime('%H:%M:%S')} - {message}")
+            self.log_browser.verticalScrollBar().setValue(
+                self.log_browser.verticalScrollBar().maximum()
+            )
+            QApplication.processEvents()  # Обновляем UI
+    
+    def validate_and_accept(self):
+        """Проверяет наличие необходимых файлов шаблонов перед формированием отчетов"""
+        try:
+            # Получаем тип отчета и дату
+            report_type = self.get_report_type()
+            selected_date = self.calendar.selectedDate().toString("dd.MM.yyyy")
+            
+            # Проверяем наличие необходимых файлов
+            if report_type == 'daily':
+                if not os.path.exists('Отчёт.xlsx'):
+                    self.add_log(f"ОШИБКА: Шаблон Отчёт.xlsx не найден!")
+                    QMessageBox.critical(self, "Ошибка", f"Шаблон Отчёт.xlsx не найден!")
+                    return
+                    
+                if not os.path.exists('Сводный.xlsx'):
+                    self.add_log(f"ОШИБКА: Шаблон Сводный.xlsx не найден!")
+                    QMessageBox.critical(self, "Ошибка", f"Шаблон Сводный.xlsx не найден!")
+                    return
+            
+            if report_type == 'summary' and not os.path.exists('Сводный.xlsx'):
+                self.add_log(f"ОШИБКА: Шаблон Сводный.xlsx не найден!")
+                QMessageBox.critical(self, "Ошибка", f"Шаблон Сводный.xlsx не найден!")
+                return
+            
+            if not os.path.exists('control.xlsx'):
+                self.add_log("ОШИБКА: Файл control.xlsx не найден!")
+                QMessageBox.critical(self, "Ошибка", "Файл control.xlsx не найден!")
+                return
+            
+            self.add_log(f"Выбран тип отчета: {report_type}, дата: {selected_date}")
+            
+            # Принимаем диалог
+            self.accept()
+            
+        except Exception as e:
+            self.add_log(f"ОШИБКА: {str(e)}")
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при проверке: {str(e)}")
+    
+    def analyze_template(self, template_file):
+        """Анализирует структуру шаблона отчета для отладки"""
+        try:
+            self.add_log(f"Анализ шаблона {template_file}...")
+            
+            # Загружаем шаблон
+            wb = load_workbook(template_file)
+            ws = wb.active
+            
+            # Проверяем размер файла
+            self.add_log(f"Размеры листа: {ws.max_row} строк, {ws.max_column} столбцов")
+            
+            # Ищем ключевые заголовки
+            header_rows = []
+            for row in range(1, min(20, ws.max_row + 1)):
+                has_headers = False
+                for col in range(1, min(10, ws.max_column + 1)):
+                    cell_value = ws.cell(row=row, column=col).value
+                    if cell_value and isinstance(cell_value, str) and any(keyword in cell_value.lower() for keyword in ["дата", "плавк", "отливк", "брак", "сорт"]):
+                        has_headers = True
+                        break
+                if has_headers:
+                    header_rows.append(row)
+            
+            if header_rows:
+                self.add_log(f"Найдены строки с заголовками: {header_rows}")
+            else:
+                self.add_log("ВНИМАНИЕ: Не найдены строки с заголовками!")
+            
+        except Exception as e:
+            self.add_log(f"Ошибка при анализе шаблона: {str(e)}")
+    
+    def get_report_type(self):
+        """Возвращает тип отчета"""
+        if self.radio_daily.isChecked():
+            return "daily"
+        elif self.radio_summary.isChecked():
+            return "summary"
+        elif self.radio_full.isChecked():
+            return "full"
+        elif self.radio_template.isChecked():
+            return "template"
+        return "summary"  # По умолчанию
+    
+    def get_report_type_name(self, report_type):
+        """Возвращает название типа отчета для отображения"""
+        types = {
+            "daily": "Ежедневный отчет",
+            "summary": "Стандартный сводный отчет",
+            "full": "Полный сводный отчет",
+            "template": "Шаблон полного отчета"
+        }
+        return types.get(report_type, "Отчет")
+    
+    def get_report_data(self):
+        """Возвращает тип отчета и выбранную дату"""
+        report_type = self.get_report_type()
+        selected_date = self.calendar.selectedDate().toString("dd.MM.yyyy")
+        return report_type, selected_date
+
+# Класс для работы с отчетами
+class ReportGenerator:
+    def __init__(self):
+        self.control_file = 'control.xlsx'
+        self.report_file = 'Отчёт.xlsx'
+        self.summary_file = 'Сводный.xlsx'
+        self.debug = True
+        
+        # Добавляем импорт traceback для отслеживания ошибок, если его еще нет
+        try:
+            import traceback
+        except ImportError:
+            pass  # traceback уже импортирован
+            
+    def log(self, message):
+        """Выводит отладочные сообщения, если включен режим отладки"""
+        if self.debug:
+            print(f"[DEBUG] {message}")
+            with open('report_generator.log', 'a', encoding='utf-8') as f:
+                f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}\n")
+    
+    def generate_daily_report(self, date_str, summary_report_file=None):
+        """Генерирует ежедневный отчет на основе даты и данных из сводного отчета"""
+        if not os.path.exists(self.report_file):
+            raise FileNotFoundError(f"Файл шаблона {self.report_file} не найден")
+        
+        # Проверяем наличие сводного отчета
+        if summary_report_file is None or not os.path.exists(summary_report_file):
+            # Если сводный отчет не указан, пытаемся найти его по дате
+            summary_report_file = f'Сводный_{date_str.replace(".", "-")}.xlsx'
+            if not os.path.exists(summary_report_file):
+                # Если сводный отчет не найден, генерируем его
+                summary_report_file = self.generate_summary_report(date_str)
+        
+        try:
+            self.log(f"Формирование ежедневного отчета на основе сводного отчета: {summary_report_file}")
+            
+            # Загружаем данные из сводного отчета через pandas
+            df_summary = pd.read_excel(summary_report_file)
+            
+            # Если данных нет, сообщаем об ошибке
+            if df_summary.empty:
+                raise ValueError(f"В сводном отчете {summary_report_file} нет данных")
+            
+            self.log(f"Колонки в сводном отчете: {df_summary.columns.tolist()}")
+            
+            # Создаем копию шаблона отчета для сохранения результатов
+            report_output = f'Отчет_{date_str.replace(".", "-")}.xlsx'
+            
+            # Копируем оригинальный файл шаблона для сохранения форматирования
+            shutil.copy(self.report_file, report_output)
+            
+            # Загружаем файл отчета
+            wb = load_workbook(report_output)
+            ws = wb.active
+            
+            # Пишем дату в файл (ищем ячейку с "Дата" для заполнения)
+            for row in range(1, 10):
+                for col in range(1, 5):
+                    cell_value = str(ws.cell(row=row, column=col).value or "").lower()
+                    if "дата" in cell_value:
+                        # Проверяем, не является ли целевая ячейка объединенной
+                        target_cell = ws.cell(row=row, column=col+1)
+                        if hasattr(target_cell, 'coordinate'):
+                            # Это не объединенная ячейка, можем напрямую изменять значение
+                            target_cell.value = date_str
+                        else:
+                            # Это объединенная ячейка, найдем основную ячейку и изменим её
+                            # Ищем все объединенные диапазоны
+                            for merged_range in ws.merged_cells.ranges:
+                                if target_cell.coordinate in merged_range:
+                                    # Нашли диапазон, содержащий текущую ячейку
+                                    # Получаем координату верхней левой ячейки диапазона
+                                    main_cell_coord = merged_range.coord.split(':')[0]
+                                    # Записываем значение в основную ячейку диапазона
+                                    ws[main_cell_coord] = date_str
+                                    break
+                        break
+            
+            # Находим основные блоки данных
+            # Обычно это строки 7 и 18 для заголовков двух таблиц
+            header_row1 = None
+            header_row2 = None
+            
+            for row in range(1, 25):
+                cell_value = str(ws.cell(row=row, column=1).value or "").lower()
+                if "наименование" in cell_value and "отливк" in cell_value:
+                    if header_row1 is None:
+                        header_row1 = row
+                    elif header_row2 is None:
+                        header_row2 = row
+            
+            if header_row1 is None:
+                header_row1 = 7  # Значение по умолчанию
+            if header_row2 is None:
+                header_row2 = 18  # Значение по умолчанию
+                
+            self.log(f"Найдены строки заголовков: {header_row1} и {header_row2}")
+            
+            # Загружаем данные из сводного отчета
+            summary_data = []
+            try:
+                for index, row in df_summary.iterrows():
+                    # Пропускаем пустые строки или строки ИТОГО
+                    if pd.isna(row[0]) or "ИТОГО" in str(row[0]).upper():
+                        continue
+                    
+                    summary_data.append(row.to_dict())
+            except Exception as e:
+                self.log(f"Ошибка при чтении сводного отчета: {str(e)}")
+                
+                # Попробуем загрузить через openpyxl, если pandas не сработал
+                wb_summary = load_workbook(summary_report_file)
+                ws_summary = wb_summary.active
+                
+                # Ищем строку заголовков
+                header_row_summary = 3  # По умолчанию для нового формата
+                for row in range(1, 10):
+                    cell_value = str(ws_summary.cell(row=row, column=1).value or "").lower()
+                    if "наименование" in cell_value and "отливк" in cell_value:
+                        header_row_summary = row
+                        break
+                
+                # Получаем заголовки
+                headers = []
+                for col in range(1, ws_summary.max_column + 1):
+                    headers.append(str(ws_summary.cell(row=header_row_summary, column=col).value or ""))
+                
+                # Собираем данные
+                for row in range(header_row_summary + 1, ws_summary.max_row + 1):
+                    if ws_summary.cell(row=row, column=1).value is None:
+                        continue
+                    
+                    if "ИТОГО" in str(ws_summary.cell(row=row, column=1).value).upper():
+                        continue
+                    
+                    row_data = {}
+                    for col in range(1, len(headers) + 1):
+                        if col <= ws_summary.max_column:
+                            row_data[headers[col-1]] = ws_summary.cell(row=row, column=col).value
+                    
+                    if row_data:
+                        summary_data.append(row_data)
+                
+                wb_summary.close()
+            
+            self.log(f"Прочитано {len(summary_data)} записей из сводного отчета")
+            
+            # Заполняем первую таблицу
+            data_row1 = header_row1 + 1
+            for i, data in enumerate(summary_data[:10]):  # Первые 10 записей
+                # Определяем наименование отливки и номера плавок
+                name = None
+                for key in data:
+                    if "наименование" in str(key).lower() and "отливк" in str(key).lower():
+                        name = data[key]
+                        break
+                
+                if not name:
+                    continue
+                
+                # Ищем столбцы для заполнения в первой таблице
+                for col in range(1, ws.max_column + 1):
+                    header = str(ws.cell(row=header_row1, column=col).value or "").lower()
+                    
+                    if "наименование" in header and "отливк" in header:
+                        ws.cell(row=data_row1 + i, column=col).value = name
+                    elif "номер" in header and "плавк" in header:
+                        # Ищем номера плавок в данных
+                        for key in data:
+                            if "номер" in str(key).lower() and "плавк" in str(key).lower():
+                                ws.cell(row=data_row1 + i, column=col).value = data[key]
+                                break
+                    elif "отлито" in header and not any(x in header for x in ["брак", "сорт", "доработк"]):
+                        # Ищем отлито в данных
+                        for key in data:
+                            if "отлито" in str(key).lower() and not any(x in str(key).lower() for x in ["брак", "сорт", "доработк"]):
+                                ws.cell(row=data_row1 + i, column=col).value = data[key]
+                                break
+                    elif "принято" in header and not any(x in header for x in ["брак", "сорт", "доработк"]):
+                        # Ищем принято в данных
+                        for key in data:
+                            if "принято" in str(key).lower() and not any(x in str(key).lower() for x in ["брак", "сорт", "доработк"]):
+                                ws.cell(row=data_row1 + i, column=col).value = data[key]
+                                break
+                    elif "годн" in header:
+                        # Ищем процент годности в данных
+                        for key in data:
+                            if "годн" in str(key).lower():
+                                cell = ws.cell(row=data_row1 + i, column=col)
+                                cell.value = data[key]
+                                cell.number_format = '0.00"%"'
+                                break
+            
+            # Заполняем вторую таблицу
+            data_row2 = header_row2 + 1
+            for i, data in enumerate(summary_data[10:20]):  # Следующие 10 записей
+                # Определяем наименование отливки и номера плавок
+                name = None
+                for key in data:
+                    if "наименование" in str(key).lower() and "отливк" in str(key).lower():
+                        name = data[key]
+                        break
+                
+                if not name:
+                    continue
+                
+                # Ищем столбцы для заполнения во второй таблице
+                for col in range(1, ws.max_column + 1):
+                    header = str(ws.cell(row=header_row2, column=col).value or "").lower()
+                    
+                    if "наименование" in header and "отливк" in header:
+                        ws.cell(row=data_row2 + i, column=col).value = name
+                    elif "номер" in header and "плавк" in header:
+                        # Ищем номера плавок в данных
+                        for key in data:
+                            if "номер" in str(key).lower() and "плавк" in str(key).lower():
+                                ws.cell(row=data_row2 + i, column=col).value = data[key]
+                                break
+                    elif "отлито" in header and not any(x in header for x in ["брак", "сорт", "доработк"]):
+                        # Ищем отлито в данных
+                        for key in data:
+                            if "отлито" in str(key).lower() and not any(x in str(key).lower() for x in ["брак", "сорт", "доработк"]):
+                                ws.cell(row=data_row2 + i, column=col).value = data[key]
+                                break
+                    elif "принято" in header and not any(x in header for x in ["брак", "сорт", "доработк"]):
+                        # Ищем принято в данных
+                        for key in data:
+                            if "принято" in str(key).lower() and not any(x in str(key).lower() for x in ["брак", "сорт", "доработк"]):
+                                ws.cell(row=data_row2 + i, column=col).value = data[key]
+                                break
+                    elif "годн" in header:
+                        # Ищем процент годности в данных
+                        for key in data:
+                            if "годн" in str(key).lower():
+                                cell = ws.cell(row=data_row2 + i, column=col)
+                                cell.value = data[key]
+                                cell.number_format = '0.00"%"'
+                                break
+            
+            # Устанавливаем форматирование для всех заполненных ячеек
+            for row_start, row_end in [(data_row1, data_row1 + 10), (data_row2, data_row2 + 10)]:
+                for row in range(row_start, row_end):
+                    for col in range(1, ws.max_column + 1):
+                        cell = ws.cell(row=row, column=col)
+                        if cell.value is not None:
+                            # Устанавливаем выравнивание в зависимости от типа данных
+                            if isinstance(cell.value, str) and len(cell.value) > 10:
+                                cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                            else:
+                                cell.alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Сохраняем файл
+            wb.save(report_output)
+            wb.close()
+            self.log(f"Ежедневный отчет успешно сохранен в файл: {report_output}")
+            
+            return report_output
+        
+        except Exception as e:
+            print(f"ОШИБКА при формировании ежедневного отчета: {str(e)}")
+            traceback_str = traceback.format_exc()
+            print(traceback_str)
+            self.log(f"ОШИБКА при формировании ежедневного отчета: {str(e)}")
+            self.log(traceback_str)
+            raise Exception(f"Ошибка при формировании ежедневного отчета: {str(e)}")
+    
+    def generate_summary_report(self, date_str):
+        """Генерирует сводный отчет по наименованиям отливок"""
+        if not os.path.exists(self.control_file):
+            raise FileNotFoundError(f"Файл {self.control_file} не найден")
+        
+        try:
+            import traceback
+            self.log(f"Начало формирования сводного отчета за {date_str}")
+            
+            # Загружаем данные из control.xlsx
+            self.log(f"Загрузка данных из {self.control_file}")
+            df_control = pd.read_excel(self.control_file)
+            
+            # Заменяем NaN значения на 0 для всех числовых колонок
+            numeric_cols = df_control.select_dtypes(include=['float64', 'int64']).columns
+            df_control[numeric_cols] = df_control[numeric_cols].fillna(0)
+            
+            # Выводим колонки для отладки
+            self.log(f"Колонки в control.xlsx: {df_control.columns.tolist()}")
+            self.log(f"Всего записей в control.xlsx: {len(df_control)}")
+            
+            # Конвертируем даты
+            self.log(f"Конвертация даты приемки")
+            if 'Контроль_дата_приемки' in df_control.columns:
+                df_control['Контроль_дата_приемки'] = pd.to_datetime(df_control['Контроль_дата_приемки'], format='%d.%m.%Y', errors='coerce')
+            else:
+                self.log(f"ВНИМАНИЕ: Колонка 'Контроль_дата_приемки' не найдена")
+                df_control['Контроль_дата_приемки'] = pd.NaT
+            
+            # Если указана дата, фильтруем по ней
+            if date_str:
+                self.log(f"Фильтрация по дате {date_str}")
+                selected_date = datetime.strptime(date_str, '%d.%m.%Y')
+                df_filtered = df_control[df_control['Контроль_дата_приемки'].dt.date == selected_date.date()]
+                
+                self.log(f"После фильтрации осталось записей: {len(df_filtered)}")
+                if df_filtered.empty:
+                    raise ValueError(f"Нет данных за {date_str}")
+            else:
+                df_filtered = df_control
+            
+            # Создаем новый сводный отчет вместо использования шаблона
+            suffix = f"_{date_str.replace('.', '-')}" if date_str else f"_{datetime.now().strftime('%d-%m-%Y')}"
+            summary_output = f'Сводный{suffix}.xlsx'
+            
+            # Работаем с новым пустым файлом
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Сводный отчет"
+            
+            # Заголовок отчета
+            ws.merge_cells('A1:H1')
+            ws['A1'] = f"СВОДНЫЙ ОТЧЕТ ПО ПЛАВКАМ ЗА {date_str}"
+            ws['A1'].font = Font(size=16, bold=True)
+            ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Заголовки таблицы
+            headers = [
+                'Наименование отливки',
+                'Отлито',
+                'Принято',
+                'Второй сорт',
+                'Доработка',
+                'Окончательный брак',
+                'Процент годности',
+                'Номера плавок'
+            ]
+            
+            # Добавляем детальные заголовки для всех типов дефектов
+            # Второй сорт
+            brak_headers = []
+            for col in df_filtered.columns:
+                if col.startswith('Второй_сорт_'):
+                    name = col.replace('Второй_сорт_', '')
+                    headers.append(f'Второй сорт: {name}')
+                    brak_headers.append(col)
+            
+            # Доработка
+            for col in df_filtered.columns:
+                if col.startswith('Доработка_'):
+                    name = col.replace('Доработка_', '')
+                    headers.append(f'Доработка: {name}')
+                    brak_headers.append(col)
+            
+            # Окончательный брак
+            for col in df_filtered.columns:
+                if col.startswith('Окончательный_брак_'):
+                    name = col.replace('Окончательный_брак_', '')
+                    headers.append(f'Брак: {name}')
+                    brak_headers.append(col)
+            
+            # Записываем заголовки
+            for col, header in enumerate(headers, start=1):
+                cell = ws.cell(row=3, column=col)
+                cell.value = header
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrapText=True)
+            
+            # Создаем словарь для группировки номеров плавок по наименованиям
+            self.log(f"Начинаем группировку номеров плавок по наименованиям отливок")
+            naimenovaniya_plavki = {}
+            
+            # Определяем, какие колонки у нас есть в данных
+            has_naimenovanie = 'Наименование_отливки' in df_filtered.columns
+            
+            if not has_naimenovanie:
+                self.log("ВНИМАНИЕ: Колонка 'Наименование_отливки' отсутствует")
+                # Если нет Наименование_отливки, проверяем альтернативы
+                if 'наименование_отливки' in df_filtered.columns:
+                    df_filtered['Наименование_отливки'] = df_filtered['наименование_отливки']
+                    has_naimenovanie = True
+                    self.log("Использую колонку 'наименование_отливки'")
+            
+            if not has_naimenovanie:
+                raise KeyError("Колонка с наименованием отливки не найдена в данных")
+            
+            # Группируем номера плавок по наименованиям отливок
+            for idx, row in df_filtered.iterrows():
+                name = row['Наименование_отливки']
+                if pd.isna(name) or not name:
+                    continue
+                    
+                plavka = row['Номер_плавки'] if 'Номер_плавки' in row and pd.notna(row['Номер_плавки']) else ""
+                
+                if name not in naimenovaniya_plavki:
+                    naimenovaniya_plavki[name] = set()
+                
+                if plavka and not pd.isna(plavka):
+                    plavka_str = str(plavka).strip()
+                    if plavka_str:
+                        naimenovaniya_plavki[name].add(plavka_str)
+            
+            # Группируем данные по наименованию отливки
+            grouped_data = []
+            
+            for name, group in df_filtered.groupby('Наименование_отливки'):
+                if pd.isna(name) or not name:
+                    continue
+                
+                # Базовая информация
+                group_info = {
+                    'Наименование_отливки': name,
+                    'Контроль_отлито': int(group['Контроль_отлито'].sum()) if 'Контроль_отлито' in group.columns else 0,
+                    'Контроль_принято': int(group['Контроль_принято'].sum()) if 'Контроль_принято' in group.columns else 0,
+                    'Номера_плавок': ", ".join(sorted(list(naimenovaniya_plavki.get(name, []))))
+                }
+                
+                # Второй сорт
+                second_sort_columns = [c for c in group.columns if c.startswith('Второй_сорт_')]
+                group_info['Второй_сорт'] = int(group[second_sort_columns].sum().sum()) if second_sort_columns else 0
+                
+                # Детализация по второму сорту
+                for col in second_sort_columns:
+                    group_info[col] = int(group[col].sum())
+                
+                # Доработка
+                rework_columns = [c for c in group.columns if c.startswith('Доработка_')]
+                group_info['Доработка'] = int(group[rework_columns].sum().sum()) if rework_columns else 0
+                
+                # Детализация по доработке
+                for col in rework_columns:
+                    group_info[col] = int(group[col].sum())
+                
+                # Окончательный брак
+                reject_columns = [c for c in group.columns if c.startswith('Окончательный_брак_')]
+                group_info['Окончательный_брак'] = int(group[reject_columns].sum().sum()) if reject_columns else 0
+                
+                # Детализация по окончательному браку
+                for col in reject_columns:
+                    group_info[col] = int(group[col].sum())
+                
+                # Процент годности
+                if group_info['Контроль_отлито'] > 0:
+                    group_info['Процент_годности'] = round((group_info['Контроль_принято'] / group_info['Контроль_отлито']) * 100, 2)
+                else:
+                    group_info['Процент_годности'] = 0
+                
+                grouped_data.append(group_info)
+            
+            self.log(f"Сформировано {len(grouped_data)} групп для отчета")
+            
+            # Заполняем данные из сгруппированных записей
+            for idx, row_data in enumerate(grouped_data):
+                current_row = 4 + idx
+                
+                # Заполняем основные колонки
+                ws.cell(row=current_row, column=1).value = row_data['Наименование_отливки']
+                ws.cell(row=current_row, column=2).value = row_data['Контроль_отлито']
+                ws.cell(row=current_row, column=3).value = row_data['Контроль_принято']
+                ws.cell(row=current_row, column=4).value = row_data['Второй_сорт']
+                ws.cell(row=current_row, column=5).value = row_data['Доработка']
+                ws.cell(row=current_row, column=6).value = row_data['Окончательный_брак']
+                ws.cell(row=current_row, column=7).value = row_data['Процент_годности']
+                
+                # Номера плавок с выравниванием влево и переносом слов
+                cell = ws.cell(row=current_row, column=8)
+                cell.value = row_data['Номера_плавок']
+                cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                
+                # Заполняем детальные данные по дефектам
+                col_offset = 8  # После основных колонок
+                
+                # Второй сорт
+                for i, col in enumerate([c for c in df_filtered.columns if c.startswith('Второй_сорт_')], 1):
+                    if col in row_data:
+                        ws.cell(row=current_row, column=col_offset + i).value = row_data[col]
+                
+                col_offset += len([c for c in df_filtered.columns if c.startswith('Второй_сорт_')])
+                
+                # Доработка
+                for i, col in enumerate([c for c in df_filtered.columns if c.startswith('Доработка_')], 1):
+                    if col in row_data:
+                        ws.cell(row=current_row, column=col_offset + i).value = row_data[col]
+                
+                col_offset += len([c for c in df_filtered.columns if c.startswith('Доработка_')])
+                
+                # Окончательный брак
+                for i, col in enumerate([c for c in df_filtered.columns if c.startswith('Окончательный_брак_')], 1):
+                    if col in row_data:
+                        ws.cell(row=current_row, column=col_offset + i).value = row_data[col]
+            
+            # Добавляем автофильтр
+            last_column = len(headers)
+            last_column_letter = ''
+            if last_column <= 26:
+                last_column_letter = chr(64 + last_column)
+            else:
+                # Для колонки > 26 используем правильное преобразование
+                first_letter_idx = (last_column - 1) // 26
+                second_letter_idx = (last_column - 1) % 26
+                last_column_letter = chr(65 + first_letter_idx - 1) + chr(65 + second_letter_idx)
+            
+            ws.auto_filter.ref = f"A3:{last_column_letter}{3 + len(grouped_data)}"
+            
+            # Устанавливаем ширину столбцов
+            ws.column_dimensions['A'].width = 30  # Наименование отливки
+            ws.column_dimensions['B'].width = 10  # Отлито
+            ws.column_dimensions['C'].width = 10  # Принято
+            ws.column_dimensions['D'].width = 12  # Второй сорт
+            ws.column_dimensions['E'].width = 12  # Доработка
+            ws.column_dimensions['F'].width = 15  # Окончательный брак
+            ws.column_dimensions['G'].width = 15  # Процент годности
+            ws.column_dimensions['H'].width = 40  # Номера плавок
+            
+            # Устанавливаем ширину для детальных колонок
+            for col in range(9, 9 + len(brak_headers)):
+                # Правильное преобразование номера колонки в буквенное обозначение
+                if col <= 26:
+                    col_letter = chr(64 + col)
+                else:
+                    # Разбиваем на две буквы для колонок после Z
+                    first_letter_idx = (col - 1) // 26
+                    second_letter_idx = (col - 1) % 26
+                    col_letter = chr(65 + first_letter_idx - 1) + chr(65 + second_letter_idx)
+                
+                ws.column_dimensions[col_letter].width = 15
+            
+            # Форматирование ячеек
+            for row in range(4, 4 + len(grouped_data)):
+                for col in range(1, 9 + len(brak_headers)):
+                    cell = ws.cell(row=row, column=col)
+                    if col == 1:  # Наименование отливки
+                        cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                    elif col == 8:  # Номера плавок
+                        cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                    else:
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+                        
+                    # Форматируем процент годности
+                    if col == 7:  # Процент годности
+                        cell.number_format = '0.00"%"'
+            
+            # Добавляем суммы в конце таблицы
+            sum_row = 4 + len(grouped_data)
+            ws.cell(row=sum_row, column=1).value = "ИТОГО:"
+            ws.cell(row=sum_row, column=1).font = Font(bold=True)
+            
+            # Суммируем числовые столбцы
+            for col in range(2, 7):
+                col_letter = chr(64 + col)
+                ws.cell(row=sum_row, column=col).value = f"=SUM({col_letter}4:{col_letter}{sum_row - 1})"
+                ws.cell(row=sum_row, column=col).font = Font(bold=True)
+            
+            # Средний процент годности
+            ws.cell(row=sum_row, column=7).value = f"=C{sum_row}/B{sum_row}*100"
+            ws.cell(row=sum_row, column=7).font = Font(bold=True)
+            ws.cell(row=sum_row, column=7).number_format = '0.00"%"'
+            
+            # Суммируем детальные столбцы с дефектами
+            for i in range(9, 9 + len(brak_headers)):
+                # Правильное преобразование номера колонки в буквенное обозначение
+                if i <= 26:
+                    col_letter = chr(64 + i)
+                else:
+                    # Разбиваем на две буквы для колонок после Z
+                    first_letter_idx = (i - 1) // 26
+                    second_letter_idx = (i - 1) % 26
+                    col_letter = chr(65 + first_letter_idx - 1) + chr(65 + second_letter_idx)
+                
+                ws.cell(row=sum_row, column=i).value = f"=SUM({col_letter}4:{col_letter}{sum_row - 1})"
+                ws.cell(row=sum_row, column=i).font = Font(bold=True)
+            
+            # Применяем стили ко всей таблице
+            for row in range(3, sum_row + 1):
+                for col in range(1, 9 + len(brak_headers)):
+                    cell = ws.cell(row=row, column=col)
+                    thin_border = Border(left=Side(style='thin'), 
+                                      right=Side(style='thin'), 
+                                      top=Side(style='thin'), 
+                                      bottom=Side(style='thin'))
+                    cell.border = thin_border
+            
+            # Сохраняем готовый отчет
+            wb.save(summary_output)
+            self.log(f"Сводный отчет успешно сохранен в файл: {summary_output}")
+            return summary_output
+            
+        except Exception as e:
+            traceback_str = traceback.format_exc()
+            self.log(f"ОШИБКА при формировании сводного отчета: {str(e)}")
+            self.log(traceback_str)
+            raise Exception(f"Ошибка при формировании сводного отчета: {str(e)}")
+    
+    def _find_column_index(self, worksheet, possible_names):
+        """Находит индекс колонки по возможным именам"""
+        last_column = worksheet.max_column
+        
+        # Проверяем в строках с 1 по 10 (обычно здесь находятся заголовки)
+        for header_row in range(1, 10):
+            for col in range(1, last_column + 1):
+                cell_value = worksheet.cell(row=header_row, column=col).value
+                if cell_value:
+                    cell_value = str(cell_value).strip().lower()
+                    for name in possible_names:
+                        if name and str(name).strip().lower() in cell_value or cell_value in str(name).strip().lower():
+                            return col
+        
+        return None
+
+    def create_new_report_template(self):
+        """Создает новый шаблон для отчета с полными данными о дефектах"""
+        try:
+            self.log("Создание нового шаблона для отчета с полной информацией о дефектах")
+            
+            # Загружаем данные из control.xlsx для получения структуры
+            self.log(f"Загрузка структуры из {self.control_file}")
+            df_control = pd.read_excel(self.control_file)
+            
+            # Создаем новый файл отчета
+            output_file = 'Полный_сводный_отчет.xlsx'
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Полный сводный отчет"
+            
+            # Заголовок отчета
+            ws.merge_cells('A1:H1')
+            ws['A1'] = f"ПОЛНЫЙ СВОДНЫЙ ОТЧЕТ ПО ПЛАВКАМ"
+            ws['A1'].font = Font(size=16, bold=True)
+            ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Информационный блок
+            ws['A3'] = "Дата отчета:"
+            ws['B3'] = datetime.now().strftime('%d.%m.%Y')
+            ws['A3'].font = Font(bold=True)
+            ws['B3'].alignment = Alignment(horizontal='center')
+            
+            ws['A4'] = "Диапазон дат:"
+            ws['B4'] = "Все даты"
+            ws['A4'].font = Font(bold=True)
+            ws['B4'].alignment = Alignment(horizontal='center')
+            
+            # Создаем базовые заголовки таблицы
+            headers = [
+                'Наименование отливки',
+                'Отлито, шт.',
+                'Принято, шт.',
+                'Второй сорт, шт.',
+                'Доработка, шт.',
+                'Окончательный брак, шт.',
+                'Процент годности, %',
+                'Номера плавок'
+            ]
+            
+            # Добавляем заголовки для всех типов дефектов из control.xlsx
+            # По категориям дефектов
+            
+            # Второй сорт
+            second_sort_columns = [c for c in df_control.columns if c.startswith('Второй_сорт_')]
+            for col in second_sort_columns:
+                headers.append(f"ВС: {col.replace('Второй_сорт_', '')}")
+            
+            # Доработка
+            rework_columns = [c for c in df_control.columns if c.startswith('Доработка_')]
+            for col in rework_columns:
+                headers.append(f"Д: {col.replace('Доработка_', '')}")
+            
+            # Окончательный брак
+            reject_columns = [c for c in df_control.columns if c.startswith('Окончательный_брак_')]
+            for col in reject_columns:
+                headers.append(f"БР: {col.replace('Окончательный_брак_', '')}")
+            
+            # Записываем заголовки
+            for col, header in enumerate(headers, start=1):
+                cell = ws.cell(row=6, column=col)
+                cell.value = header
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrapText=True)
+                
+            # Устанавливаем ширину столбцов
+            ws.column_dimensions['A'].width = 30  # Наименование отливки
+            ws.column_dimensions['B'].width = 10  # Отлито
+            ws.column_dimensions['C'].width = 10  # Принято
+            ws.column_dimensions['D'].width = 12  # Второй сорт
+            ws.column_dimensions['E'].width = 12  # Доработка
+            ws.column_dimensions['F'].width = 15  # Окончательный брак
+            ws.column_dimensions['G'].width = 15  # Процент годности
+            ws.column_dimensions['H'].width = 40  # Номера плавок
+            
+            # Устанавливаем ширину для детальных колонок
+            for col in range(9, 9 + len(second_sort_columns) + len(rework_columns) + len(reject_columns)):
+                # Правильное преобразование номера колонки в буквенное обозначение
+                if col <= 26:
+                    col_letter = chr(64 + col)
+                else:
+                    # Разбиваем на две буквы для колонок после Z
+                    first_letter_idx = (col - 1) // 26
+                    second_letter_idx = (col - 1) % 26
+                    col_letter = chr(65 + first_letter_idx - 1) + chr(65 + second_letter_idx)
+                
+                ws.column_dimensions[col_letter].width = 15
+            
+            # Добавляем образец строки данных
+            example_row = 7
+            ws.cell(row=example_row, column=1).value = "Пример наименования отливки"
+            ws.cell(row=example_row, column=2).value = 100
+            ws.cell(row=example_row, column=3).value = 85
+            ws.cell(row=example_row, column=4).value = 5
+            ws.cell(row=example_row, column=5).value = 7
+            ws.cell(row=example_row, column=6).value = 3
+            ws.cell(row=example_row, column=7).value = 85
+            ws.cell(row=example_row, column=7).number_format = '0.00"%"'
+            ws.cell(row=example_row, column=8).value = "1001/25, 1002/25, 1003/25"
+            
+            # Пример для детальных столбцов дефектов
+            defect_col = 9
+            ws.cell(row=example_row, column=defect_col).value = 2
+            ws.cell(row=example_row, column=defect_col+1).value = 3
+            
+            # Применяем стили к примеру строки
+            for col in range(1, 9 + len(second_sort_columns) + len(rework_columns) + len(reject_columns)):
+                cell = ws.cell(row=example_row, column=col)
+                if col == 1:  # Наименование отливки
+                    cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                elif col == 8:  # Номера плавок
+                    cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                else:
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Добавляем инструкции по использованию
+            instruction_row = 9
+            ws.merge_cells(f'A{instruction_row}:H{instruction_row}')
+            ws.cell(row=instruction_row, column=1).value = "Инструкция: Это шаблон для полного сводного отчета со всеми деталями дефектов. Используйте функцию 'Сформировать отчет' для заполнения."
+            ws.cell(row=instruction_row, column=1).font = Font(italic=True)
+            ws.cell(row=instruction_row, column=1).alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+            
+            # Применяем границы ко всем ячейкам таблицы заголовков и примера
+            for row in range(6, 9):
+                for col in range(1, 9 + len(second_sort_columns) + len(rework_columns) + len(reject_columns)):
+                    cell = ws.cell(row=row, column=col)
+                    thin_border = Border(left=Side(style='thin'), 
+                                      right=Side(style='thin'), 
+                                      top=Side(style='thin'), 
+                                      bottom=Side(style='thin'))
+                    cell.border = thin_border
+            
+            # Сохраняем файл
+            wb.save(output_file)
+            self.log(f"Шаблон полного отчета успешно создан: {output_file}")
+            return output_file
+            
+        except Exception as e:
+            traceback_str = traceback.format_exc()
+            self.log(f"ОШИБКА при создании шаблона отчета: {str(e)}")
+            self.log(traceback_str)
+            raise Exception(f"Ошибка при создании шаблона отчета: {str(e)}")
+            
+    def generate_full_report(self, date_str=None):
+        """Генерирует полный отчет со всеми деталями дефектов"""
+        try:
+            self.log(f"Формирование полного отчета" + (f" за {date_str}" if date_str else ""))
+            
+            # Загружаем данные из control.xlsx
+            self.log(f"Загрузка данных из {self.control_file}")
+            df_control = pd.read_excel(self.control_file)
+            
+            # Заменяем NaN значения на 0 для всех числовых колонок
+            numeric_cols = df_control.select_dtypes(include=['float64', 'int64']).columns
+            df_control[numeric_cols] = df_control[numeric_cols].fillna(0)
+            
+            # Конвертируем даты
+            self.log(f"Конвертация даты приемки")
+            if 'Контроль_дата_приемки' in df_control.columns:
+                df_control['Контроль_дата_приемки'] = pd.to_datetime(df_control['Контроль_дата_приемки'], format='%d.%m.%Y', errors='coerce')
+            else:
+                self.log(f"ВНИМАНИЕ: Колонка 'Контроль_дата_приемки' не найдена")
+                df_control['Контроль_дата_приемки'] = pd.NaT
+            
+            # Если указана дата, фильтруем по ней
+            if date_str:
+                self.log(f"Фильтрация по дате {date_str}")
+                selected_date = datetime.strptime(date_str, '%d.%m.%Y')
+                df_filtered = df_control[df_control['Контроль_дата_приемки'].dt.date == selected_date.date()]
+                
+                self.log(f"После фильтрации осталось записей: {len(df_filtered)}")
+                if df_filtered.empty:
+                    raise ValueError(f"Нет данных за {date_str}")
+            else:
+                df_filtered = df_control
+                date_str = "Все даты"
+            
+            # Создаем новый файл отчета
+            suffix = f"_{date_str.replace('.', '-').replace(' ', '_')}"
+            output_file = f'Полный_сводный_отчет{suffix}.xlsx'
+            
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Полный сводный отчет"
+            
+            # Заголовок отчета
+            ws.merge_cells('A1:H1')
+            ws['A1'] = f"ПОЛНЫЙ СВОДНЫЙ ОТЧЕТ ПО ПЛАВКАМ"
+            ws['A1'].font = Font(size=16, bold=True)
+            ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Информационный блок
+            ws['A3'] = "Дата отчета:"
+            ws['B3'] = datetime.now().strftime('%d.%m.%Y')
+            ws['A3'].font = Font(bold=True)
+            ws['B3'].alignment = Alignment(horizontal='center')
+            
+            ws['A4'] = "Диапазон дат:"
+            ws['B4'] = date_str
+            ws['A4'].font = Font(bold=True)
+            ws['B4'].alignment = Alignment(horizontal='center')
+            
+            # Создаем заголовки таблицы
+            headers = [
+                'Наименование отливки',
+                'Отлито, шт.',
+                'Принято, шт.',
+                'Второй сорт, шт.',
+                'Доработка, шт.',
+                'Окончательный брак, шт.',
+                'Процент годности, %',
+                'Номера плавок'
+            ]
+            
+            # Доп. колонки дефектов
+            defect_columns = []
+            
+            # Второй сорт
+            second_sort_columns = [c for c in df_filtered.columns if c.startswith('Второй_сорт_')]
+            for col in second_sort_columns:
+                headers.append(f"ВС: {col.replace('Второй_сорт_', '')}")
+                defect_columns.append(col)
+            
+            # Доработка
+            rework_columns = [c for c in df_filtered.columns if c.startswith('Доработка_')]
+            for col in rework_columns:
+                headers.append(f"Д: {col.replace('Доработка_', '')}")
+                defect_columns.append(col)
+            
+            # Окончательный брак
+            reject_columns = [c for c in df_filtered.columns if c.startswith('Окончательный_брак_')]
+            for col in reject_columns:
+                headers.append(f"БР: {col.replace('Окончательный_брак_', '')}")
+                defect_columns.append(col)
+            
+            # Записываем заголовки
+            for col, header in enumerate(headers, start=1):
+                cell = ws.cell(row=6, column=col)
+                cell.value = header
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrapText=True)
+            
+            # Создаем словарь для группировки номеров плавок по наименованиям
+            naimenovaniya_plavki = {}
+            
+            # Определяем, какие колонки у нас есть в данных
+            has_naimenovanie = 'Наименование_отливки' in df_filtered.columns
+            
+            if not has_naimenovanie:
+                self.log("ВНИМАНИЕ: Колонка 'Наименование_отливки' отсутствует")
+                # Если нет Наименование_отливки, проверяем альтернативы
+                if 'наименование_отливки' in df_filtered.columns:
+                    df_filtered['Наименование_отливки'] = df_filtered['наименование_отливки']
+                    has_naimenovanie = True
+                    self.log("Использую колонку 'наименование_отливки'")
+            
+            if not has_naimenovanie:
+                raise KeyError("Колонка с наименованием отливки не найдена в данных")
+            
+            # Группируем номера плавок по наименованиям отливок
+            for idx, row in df_filtered.iterrows():
+                name = row['Наименование_отливки']
+                if pd.isna(name) or not name:
+                    continue
+                    
+                plavka = row['Номер_плавки'] if 'Номер_плавки' in row and pd.notna(row['Номер_плавки']) else ""
+                
+                if name not in naimenovaniya_plavki:
+                    naimenovaniya_plavki[name] = set()
+                
+                if plavka and not pd.isna(plavka):
+                    plavka_str = str(plavka).strip()
+                    if plavka_str:
+                        naimenovaniya_plavki[name].add(plavka_str)
+            
+            # Группируем данные по наименованию отливки
+            grouped_data = []
+            
+            for name, group in df_filtered.groupby('Наименование_отливки'):
+                if pd.isna(name) or not name:
+                    continue
+                
+                # Базовая информация
+                group_info = {
+                    'Наименование_отливки': name,
+                    'Контроль_отлито': int(group['Контроль_отлито'].sum()) if 'Контроль_отлито' in group.columns else 0,
+                    'Контроль_принято': int(group['Контроль_принято'].sum()) if 'Контроль_принято' in group.columns else 0,
+                    'Номера_плавок': ", ".join(sorted(list(naimenovaniya_plavki.get(name, []))))
+                }
+                
+                # Второй сорт
+                group_info['Второй_сорт'] = int(group[second_sort_columns].sum().sum()) if second_sort_columns else 0
+                
+                # Детализация по второму сорту
+                for col in second_sort_columns:
+                    group_info[col] = int(group[col].sum())
+                
+                # Доработка
+                group_info['Доработка'] = int(group[rework_columns].sum().sum()) if rework_columns else 0
+                
+                # Детализация по доработке
+                for col in rework_columns:
+                    group_info[col] = int(group[col].sum())
+                
+                # Окончательный брак
+                group_info['Окончательный_брак'] = int(group[reject_columns].sum().sum()) if reject_columns else 0
+                
+                # Детализация по окончательному браку
+                for col in reject_columns:
+                    group_info[col] = int(group[col].sum())
+                
+                # Процент годности
+                if group_info['Контроль_отлито'] > 0:
+                    group_info['Процент_годности'] = round((group_info['Контроль_принято'] / group_info['Контроль_отлито']) * 100, 2)
+                else:
+                    group_info['Процент_годности'] = 0
+                
+                grouped_data.append(group_info)
+            
+            self.log(f"Сформировано {len(grouped_data)} групп для отчета")
+            
+            # Заполняем данные из сгруппированных записей
+            for idx, row_data in enumerate(grouped_data):
+                current_row = 7 + idx
+                
+                # Заполняем основные колонки
+                ws.cell(row=current_row, column=1).value = row_data['Наименование_отливки']
+                ws.cell(row=current_row, column=2).value = row_data['Контроль_отлито']
+                ws.cell(row=current_row, column=3).value = row_data['Контроль_принято']
+                ws.cell(row=current_row, column=4).value = row_data['Второй_сорт']
+                ws.cell(row=current_row, column=5).value = row_data['Доработка']
+                ws.cell(row=current_row, column=6).value = row_data['Окончательный_брак']
+                ws.cell(row=current_row, column=7).value = row_data['Процент_годности']
+                
+                # Номера плавок с выравниванием влево и переносом слов
+                cell = ws.cell(row=current_row, column=8)
+                cell.value = row_data['Номера_плавок']
+                cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                
+                # Заполняем детальные данные по дефектам
+                for i, col in enumerate(defect_columns, start=9):
+                    if col in row_data:
+                        ws.cell(row=current_row, column=i).value = row_data[col]
+            
+            # Добавляем автофильтр
+            # Расчет правильной последней буквы колонки
+            last_column = len(headers)
+            last_column_letter = ''
+            if last_column <= 26:
+                last_column_letter = chr(64 + last_column)
+            else:
+                # Для колонки > 26 используем правильное преобразование
+                first_letter_idx = (last_column - 1) // 26
+                second_letter_idx = (last_column - 1) % 26
+                last_column_letter = chr(65 + first_letter_idx - 1) + chr(65 + second_letter_idx)
+                
+            ws.auto_filter.ref = f"A6:{last_column_letter}{6 + len(grouped_data)}"
+            
+            # Устанавливаем ширину столбцов
+            ws.column_dimensions['A'].width = 30  # Наименование отливки
+            ws.column_dimensions['B'].width = 10  # Отлито
+            ws.column_dimensions['C'].width = 10  # Принято
+            ws.column_dimensions['D'].width = 12  # Второй сорт
+            ws.column_dimensions['E'].width = 12  # Доработка
+            ws.column_dimensions['F'].width = 15  # Окончательный брак
+            ws.column_dimensions['G'].width = 15  # Процент годности
+            ws.column_dimensions['H'].width = 40  # Номера плавок
+            
+            # Устанавливаем ширину для детальных колонок
+            for col in range(9, 9 + len(defect_columns)):
+                # Правильное преобразование номера колонки в буквенное обозначение
+                if col <= 26:
+                    col_letter = chr(64 + col)
+                else:
+                    # Разбиваем на две буквы для колонок после Z
+                    first_letter_idx = (col - 1) // 26
+                    second_letter_idx = (col - 1) % 26
+                    col_letter = chr(65 + first_letter_idx - 1) + chr(65 + second_letter_idx)
+                
+                ws.column_dimensions[col_letter].width = 15
+            
+            # Форматирование ячеек
+            for row in range(7, 7 + len(grouped_data)):
+                for col in range(1, 9 + len(defect_columns)):
+                    cell = ws.cell(row=row, column=col)
+                    if col == 1:  # Наименование отливки
+                        cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                    elif col == 8:  # Номера плавок
+                        cell.alignment = Alignment(horizontal='left', vertical='center', wrapText=True)
+                    else:
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+                        
+                    # Форматируем процент годности
+                    if col == 7:  # Процент годности
+                        cell.number_format = '0.00"%"'
+            
+            # Добавляем суммы в конце таблицы
+            sum_row = 7 + len(grouped_data)
+            ws.cell(row=sum_row, column=1).value = "ИТОГО:"
+            ws.cell(row=sum_row, column=1).font = Font(bold=True)
+            
+            # Суммируем числовые столбцы
+            for col in range(2, 7):
+                col_letter = chr(64 + col)
+                ws.cell(row=sum_row, column=col).value = f"=SUM({col_letter}7:{col_letter}{sum_row - 1})"
+                ws.cell(row=sum_row, column=col).font = Font(bold=True)
+            
+            # Средний процент годности
+            ws.cell(row=sum_row, column=7).value = f"=C{sum_row}/B{sum_row}*100"
+            ws.cell(row=sum_row, column=7).font = Font(bold=True)
+            ws.cell(row=sum_row, column=7).number_format = '0.00"%"'
+            
+            # Суммируем детальные столбцы с дефектами
+            for i in range(9, 9 + len(defect_columns)):
+                # Правильное преобразование номера колонки в буквенное обозначение
+                if i <= 26:
+                    col_letter = chr(64 + i)
+                else:
+                    # Разбиваем на две буквы для колонок после Z
+                    first_letter_idx = (i - 1) // 26
+                    second_letter_idx = (i - 1) % 26
+                    col_letter = chr(65 + first_letter_idx - 1) + chr(65 + second_letter_idx)
+                
+                ws.cell(row=sum_row, column=i).value = f"=SUM({col_letter}7:{col_letter}{sum_row - 1})"
+                ws.cell(row=sum_row, column=i).font = Font(bold=True)
+            
+            # Применяем стили ко всей таблице
+            for row in range(6, sum_row + 1):
+                for col in range(1, 9 + len(defect_columns)):
+                    cell = ws.cell(row=row, column=col)
+                    thin_border = Border(left=Side(style='thin'), 
+                                      right=Side(style='thin'), 
+                                      top=Side(style='thin'), 
+                                      bottom=Side(style='thin'))
+                    cell.border = thin_border
+            
+            # Сохраняем готовый отчет
+            wb.save(output_file)
+            self.log(f"Полный сводный отчет успешно сохранен в файл: {output_file}")
+            return output_file
+            
+        except Exception as e:
+            traceback_str = traceback.format_exc()
+            self.log(f"ОШИБКА при формировании полного отчета: {str(e)}")
+            self.log(traceback_str)
+            raise Exception(f"Ошибка при формировании полного отчета: {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
