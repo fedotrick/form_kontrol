@@ -4,7 +4,7 @@ from datetime import datetime
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                               QHBoxLayout, QPushButton, QLabel, QDateEdit, 
                               QLineEdit, QFileDialog, QMessageBox, QGroupBox,
-                              QListWidget, QComboBox)
+                              QListWidget, QComboBox, QCheckBox)
 from PySide6.QtCore import Qt, QDate
 
 from report_generator_helper import ReportHelper
@@ -34,14 +34,25 @@ class ReportGeneratorApp(QMainWindow):
         date_layout.addWidget(self.date_edit)
         settings_layout.addLayout(date_layout)
         
-        # Контролеры
+        # Контролеры с опцией авто-извлечения
+        controllers_group = QVBoxLayout()
+        controllers_auto_layout = QHBoxLayout()
+        self.auto_controllers_checkbox = QCheckBox("Автоматически извлечь контролеров из файла")
+        self.auto_controllers_checkbox.setChecked(True)
+        self.auto_controllers_checkbox.stateChanged.connect(self.toggle_controllers_input)
+        controllers_auto_layout.addWidget(self.auto_controllers_checkbox)
+        controllers_group.addLayout(controllers_auto_layout)
+        
         controllers_layout = QHBoxLayout()
         controllers_label = QLabel("Контролеры:")
         self.controllers_edit = QLineEdit()
         self.controllers_edit.setPlaceholderText("Введите имена контролеров через запятую")
+        self.controllers_edit.setEnabled(False)  # По умолчанию отключено
         controllers_layout.addWidget(controllers_label)
         controllers_layout.addWidget(self.controllers_edit)
-        settings_layout.addLayout(controllers_layout)
+        controllers_group.addLayout(controllers_layout)
+        
+        settings_layout.addLayout(controllers_group)
         
         # Выбор шаблона отчета
         template_layout = QHBoxLayout()
@@ -100,6 +111,10 @@ class ReportGeneratorApp(QMainWindow):
         # Последний сгенерированный отчет
         self.last_report_path = None
     
+    def toggle_controllers_input(self, state):
+        """Переключает доступность поля ввода контролеров"""
+        self.controllers_edit.setEnabled(not state)
+    
     def select_template(self):
         """Выбор файла шаблона отчета"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -116,12 +131,35 @@ class ReportGeneratorApp(QMainWindow):
         if file_path:
             self.control_edit.setText(file_path)
     
+    def get_controllers(self, helper, control_path, date):
+        """Получает список контролеров автоматически или из поля ввода"""
+        if self.auto_controllers_checkbox.isChecked():
+            # Автоматическое извлечение из файла control.xlsx
+            controllers = helper.get_controllers_from_excel(control_path, date)
+            if not controllers:
+                reply = QMessageBox.question(
+                    self, "Контролеры не найдены", 
+                    "В файле не найдены контролеры. Хотите ввести их вручную?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                
+                if reply == QMessageBox.Yes:
+                    # Временно включаем поле ввода
+                    self.controllers_edit.setEnabled(True)
+                    QMessageBox.information(self, "Внимание", 
+                                           "Введите имена контролеров через запятую и нажмите 'Сгенерировать отчет' снова.")
+                    return None
+                else:
+                    return []
+            return controllers
+        else:
+            # Ручной ввод
+            return [c.strip() for c in self.controllers_edit.text().split(",") if c.strip()]
+    
     def generate_report(self):
         """Генерация отчета"""
         try:
             # Получаем настройки
             date = self.date_edit.date().toString("dd.MM.yyyy")
-            controllers = [c.strip() for c in self.controllers_edit.text().split(",") if c.strip()]
             template_path = self.template_edit.text()
             control_path = self.control_edit.text()
             
@@ -134,6 +172,15 @@ class ReportGeneratorApp(QMainWindow):
                 QMessageBox.warning(self, "Ошибка", f"Файл контроля не найден: {control_path}")
                 return
             
+            # Создаем помощник
+            helper = ReportHelper(template_path)
+            
+            # Получаем контролеров
+            controllers = self.get_controllers(helper, control_path, date)
+            if controllers is None:
+                # Пользователь будет вводить контролеров вручную
+                return
+            
             # Формируем имя выходного файла
             output_date = self.date_edit.date().toString("dd-MM-yyyy")
             output_path = f"Отчет_{output_date}.xlsx"
@@ -141,9 +188,6 @@ class ReportGeneratorApp(QMainWindow):
             # Обновляем статус
             self.status_label.setText(f"Генерация отчета для даты {date}...")
             QApplication.processEvents()
-            
-            # Создаем помощник и генерируем отчет
-            helper = ReportHelper(template_path)
             
             # Устанавливаем дату и контролеров
             helper.set_date(date)
@@ -161,7 +205,8 @@ class ReportGeneratorApp(QMainWindow):
             self.last_report_path = helper.save(output_path)
             
             # Обновляем статус
-            self.status_label.setText(f"Отчет успешно сгенерирован и сохранен: {self.last_report_path}")
+            controllers_str = ", ".join(controllers)
+            self.status_label.setText(f"Отчет успешно сгенерирован с контролерами: {controllers_str}")
             
             # Показываем сообщение об успехе
             QMessageBox.information(self, "Успех", f"Отчет успешно сгенерирован и сохранен:\n{self.last_report_path}")

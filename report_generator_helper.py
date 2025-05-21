@@ -303,6 +303,55 @@ class ReportHelper:
         except Exception as e:
             print(f"Ошибка при загрузке данных из {control_file}: {e}")
             return False
+    
+    def get_controllers_from_excel(self, control_file="control.xlsx", date_str=None):
+        """
+        Извлекает имена контролеров из файла control.xlsx
+        
+        Args:
+            control_file (str): Путь к файлу control.xlsx
+            date_str (str, optional): Строка с датой для фильтрации. Если None, берутся все записи.
+            
+        Returns:
+            list: Список имен контролеров
+        """
+        try:
+            # Загружаем данные из control.xlsx
+            df = pd.read_excel(control_file)
+            
+            # Фильтруем по дате, если указана
+            if date_str:
+                date_format = "%d.%m.%Y"
+                filter_date = datetime.strptime(date_str, date_format).date()
+                
+                # Преобразуем столбец с датой в datetime
+                if 'Контроль_дата_приемки' in df.columns:
+                    df['Контроль_дата_приемки'] = pd.to_datetime(df['Контроль_дата_приемки'], errors='coerce')
+                    df = df[df['Контроль_дата_приемки'].dt.date == filter_date]
+            
+            # Извлекаем имена контролеров из столбцов Контролер1, Контролер2 и Контролер3
+            controllers = []
+            controller_columns = ['Контролер1', 'Контролер2', 'Контролер3']
+            
+            for col in controller_columns:
+                if col in df.columns:
+                    # Добавляем непустые значения из столбца
+                    controllers.extend(df[col].dropna().unique().tolist())
+            
+            # Удаляем дубликаты и пустые значения
+            controllers = [c for c in controllers if c and pd.notna(c) and str(c).strip()]
+            controllers = list(set(controllers))  # Удаляем дубликаты
+            
+            # Сортируем для стабильного порядка
+            controllers.sort()
+            
+            print(f"Найдено {len(controllers)} контролеров: {', '.join(controllers)}")
+            
+            return controllers
+        
+        except Exception as e:
+            print(f"Ошибка при извлечении контролеров из {control_file}: {e}")
+            return []
 
 # Пример использования
 if __name__ == "__main__":
@@ -310,15 +359,28 @@ if __name__ == "__main__":
         # Создаем экземпляр помощника
         helper = ReportHelper()
         
-        # Устанавливаем дату и контролеров
-        helper.set_date("20.05.2025")
-        helper.set_controllers(["Елхова", "Лабуткина"])
+        # Устанавливаем дату
+        current_date = datetime.now().strftime("%d.%m.%Y")
+        helper.set_date(current_date)
         
-        # Загружаем данные из control.xlsx
+        # Проверяем наличие файла control.xlsx
         if os.path.exists("control.xlsx"):
-            helper.load_from_control_xlsx("control.xlsx", "20.05.2025")
+            # Извлекаем контролеров из файла
+            controllers = helper.get_controllers_from_excel("control.xlsx", current_date)
+            if controllers:
+                print(f"Автоматически извлечены контролеры: {', '.join(controllers)}")
+                helper.set_controllers(controllers)
+            else:
+                print("Контролеры не найдены в файле, используем значения по умолчанию")
+                helper.set_controllers(["Елхова", "Лабуткина"])
+            
+            # Загружаем данные
+            helper.load_from_control_xlsx("control.xlsx", current_date)
         else:
             print("Файл control.xlsx не найден, используем тестовые данные")
+            
+            # Устанавливаем контролеров вручную
+            helper.set_controllers(["Елхова", "Лабуткина"])
             
             # Данные для первой таблицы (доработка)
             data1 = {
