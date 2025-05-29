@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate, Qt, QPropertyAnimation, QEasingCurve, QEvent, QDateTime, QRegularExpression, QTimer
 from PySide6 import QtGui
-from PySide6.QtGui import QFont, QColor, QRegularExpressionValidator, QIcon, QTextCursor
+from PySide6.QtGui import QFont, QColor, QRegularExpressionValidator, QIcon, QTextCursor, QPageLayout
+from PySide6.QtPrintSupport import QPrinter, QPrintDialog, QPrintPreviewDialog
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from functools import partial
@@ -1088,6 +1089,10 @@ class ControlForm(QWidget):
                         daily_report_file = report_generator.generate_daily_report(selected_date)
                         if daily_report_file:
                             QMessageBox.information(self, "Успех", f"Ежедневный отчет сохранен в файл: {daily_report_file}")
+                            
+                            # Открываем просмотрщик отчета для ежедневного отчета
+                            viewer = ReportViewerDialog(daily_report_file, self)
+                            viewer.exec()
                         else:
                             QMessageBox.warning(self, "Предупреждение", "Отчет был создан с ошибками или предупреждениями.")
                     elif report_type == 'summary':
@@ -2386,6 +2391,226 @@ class ReportGenerator:
             self.log(f"ОШИБКА при формировании полного отчета: {str(e)}")
             self.log(traceback_str)
             raise Exception(f"Ошибка при формировании полного отчета: {str(e)}")
+
+# Новый класс для просмотра и печати отчета
+class ReportViewerDialog(QDialog):
+    def __init__(self, report_file, parent=None):
+        super().__init__(parent)
+        self.report_file = report_file
+        self.setWindowTitle(f"Просмотр отчета: {os.path.basename(report_file)}")
+        self.setGeometry(100, 100, 500, 200)  # Уменьшаем размер окна, так как таблицы больше нет
+        
+        # Задаем темную тему как в основном приложении
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #282a36;
+                color: #f8f8f2;
+                font-family: 'Segoe UI', 'Aptos';
+                font-size: 11px;
+            }
+            
+            QLabel {
+                color: #f8f8f2;
+                padding: 2px;
+            }
+            
+            QPushButton {
+                background-color: #6272a4;
+                color: #f8f8f2;
+                border: none;
+                padding: 8px 15px;
+                border-radius: 2px;
+                height: 30px;
+            }
+            
+            QPushButton:hover {
+                background-color: #bd93f9;
+            }
+            
+            QPushButton:pressed {
+                background-color: #ff79c6;
+            }
+        """)
+        
+        layout = QVBoxLayout(self)
+        
+        # Информационная строка с путем к отчету
+        info_label = QLabel(f"Файл отчета: {report_file}")
+        info_label.setStyleSheet("color: #8be9fd; font-weight: bold;")
+        layout.addWidget(info_label)
+        
+        # Добавляем иконку документа для визуального оформления
+        doc_icon_label = QLabel()
+        doc_icon_label.setAlignment(Qt.AlignCenter)
+        try:
+            # Если иконка найдена, используем ее
+            icon = QIcon.fromTheme("document")
+            if not icon.isNull():
+                pixmap = icon.pixmap(64, 64)
+                doc_icon_label.setPixmap(pixmap)
+            else:
+                # Если иконка не найдена, просто показываем текст
+                doc_icon_label.setText("📊 Отчёт готов к печати")
+                doc_icon_label.setStyleSheet("font-size: 16px; color: #50fa7b;")
+        except:
+            doc_icon_label.setText("📊 Отчёт готов к печати")
+            doc_icon_label.setStyleSheet("font-size: 16px; color: #50fa7b;")
+        
+        layout.addWidget(doc_icon_label)
+        
+        # Добавляем описание операций
+        description = QLabel("Выберите действие с отчетом:")
+        description.setAlignment(Qt.AlignCenter)
+        layout.addWidget(description)
+        
+        # Панель кнопок
+        button_layout = QHBoxLayout()
+        
+        # Кнопка для открытия файла (вместо предпросмотра)
+        self.open_button = QPushButton("Предпросмотр печати")
+        self.open_button.setStyleSheet("""
+            QPushButton {
+                background-color: #bd93f9;
+                color: #282a36;
+                font-size: 14px;
+                padding: 12px 30px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d6acff;
+            }
+            QPushButton:pressed {
+                background-color: #a775f0;
+            }
+        """)
+        self.open_button.clicked.connect(self.open_document)
+        
+        # Кнопка для печати с двух сторон
+        self.print_button = QPushButton("Печать с двух сторон")
+        self.print_button.setStyleSheet("""
+            QPushButton {
+                background-color: #50fa7b;
+                color: #282a36;
+                font-size: 14px;
+                padding: 12px 30px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #69ff94;
+            }
+            QPushButton:pressed {
+                background-color: #41d66b;
+            }
+        """)
+        self.print_button.clicked.connect(self.print_duplex_manual)
+        
+        # Кнопка для закрытия диалога
+        self.close_button = QPushButton("Закрыть")
+        self.close_button.clicked.connect(self.accept)
+        
+        button_layout.addWidget(self.open_button)
+        button_layout.addWidget(self.print_button)
+        button_layout.addWidget(self.close_button)
+        
+        layout.addLayout(button_layout)
+    
+    def open_document(self):
+        """Открывает документ в программе по умолчанию (Excel)"""
+        try:
+            if os.name == 'nt':
+                os.startfile(self.report_file)
+            else:
+                import subprocess
+                subprocess.call(('xdg-open', self.report_file))
+                
+            # Удаляем закрытие диалога, чтобы окно оставалось открытым
+            # self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось открыть файл: {str(e)}")
+    
+    def print_duplex_manual(self):
+        """Реализует сценарий печати с двух сторон с ручным переворотом листа"""
+        try:
+            # Проверяем, что файл существует
+            if not os.path.exists(self.report_file):
+                QMessageBox.critical(self, "Ошибка", "Файл отчета не найден")
+                return
+                
+            # Настраиваем принтер
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setPageOrientation(QPageLayout.Landscape)  # Альбомная ориентация
+            
+            # Открываем диалог настройки печати
+            dialog = QPrintDialog(printer, self)
+            dialog.setWindowTitle("Настройка печати")
+            
+            if not dialog.exec():
+                return  # Пользователь отменил печать
+                
+            # Получаем количество копий и имя принтера для использования в системных вызовах
+            printer_name = printer.printerName()
+            
+            if os.name == 'nt':
+                try:
+                    import win32api
+                    import win32print
+                    
+                    # Устанавливаем выбранный принтер как принтер по умолчанию
+                    win32print.SetDefaultPrinter(printer_name)
+                    
+                    # Печатаем первую страницу
+                    self.print_specific_pages(self.report_file, "1")
+                    
+                    # Запрашиваем у пользователя переворот листа
+                    msg_box = QMessageBox(self)
+                    msg_box.setWindowTitle("Двусторонняя печать")
+                    msg_box.setText("Пожалуйста, переверните лист в принтере для печати второй страницы.")
+                    msg_box.setIcon(QMessageBox.Information)
+                    msg_box.setStandardButtons(QMessageBox.Ok)
+                    msg_box.exec()
+                    
+                    # Печатаем вторую страницу
+                    self.print_specific_pages(self.report_file, "2")
+                    
+                    QMessageBox.information(self, "Печать завершена", "Двусторонняя печать завершена успешно")
+                    self.accept()  # Закрываем диалог
+                    
+                except ImportError:
+                    QMessageBox.critical(self, "Ошибка", "Не удалось загрузить библиотеку win32print. Установите пакет pywin32.")
+                except Exception as e:
+                    QMessageBox.critical(self, "Ошибка печати", f"Ошибка при печати: {str(e)}")
+            else:
+                QMessageBox.warning(self, "Внимание", 
+                               "Ручная двусторонняя печать поддерживается только в Windows. Используйте обычную печать.")
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось выполнить печать: {str(e)}")
+    
+    def print_specific_pages(self, file_path, pages):
+        """Печатает определенные страницы Excel-файла"""
+        try:
+            import win32com.client
+            
+            # Открываем Excel
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.Visible = False  # Скрываем Excel
+            
+            # Открываем файл
+            workbook = excel.Workbooks.Open(os.path.abspath(file_path))
+            
+            # Печатаем указанные страницы
+            workbook.PrintOut(From=int(pages), To=int(pages))
+            
+            # Закрываем файл и Excel
+            workbook.Close(SaveChanges=False)
+            excel.Quit()
+            
+            # Освобождаем COM-объекты
+            del workbook
+            del excel
+            
+        except Exception as e:
+            raise Exception(f"Ошибка при печати страницы {pages}: {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
