@@ -90,6 +90,14 @@ class ReportHelper:
         if date_str is None:
             date_str = datetime.now().strftime("%d.%m.%Y")
         
+        # Извлекаем год из date_str
+        try:
+            date_obj = datetime.strptime(date_str, "%d.%m.%Y")
+            year = date_obj.year
+        except:
+            # Если не получилось извлечь год, используем текущий
+            year = datetime.now().year
+        
         # Находим ячейку с датой (строка 1-3, начинается с "Дата:")
         for row_idx in range(1, 4):
             for col_idx in range(1, 5):
@@ -97,7 +105,7 @@ class ReportHelper:
                 if cell.value and isinstance(cell.value, str) and "Дата:" in cell.value:
                     # Находим дату в самой строке и модифицируем ее
                     current_value = cell.value
-                    updated_value = f"Дата:  {date_str}  2025 г."
+                    updated_value = f"Дата:  {date_str}"
                     
                     # Обновляем значение в ячейке
                     main_coords = self.find_main_cell_in_merge(row_idx, col_idx)
