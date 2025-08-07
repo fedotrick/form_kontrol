@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Контроль Отливок</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #282a36;
+            --bg-secondary: #44475a;
+            --bg-tertiary: #6272a4;
+            --text-primary: #f8f8f2;
+            --text-secondary: #bd93f9;
+            --text-muted: #6272a4;
+            --accent: #50fa7b;
+            --error: #ff5555;
+            --warning: #ffb86c;
+            --border: #44475a;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px var(--shadow);
+        }
+
+        .header h1 {
+            color: var(--accent);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .form-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-section {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px var(--shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .form-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px var(--shadow);
+        }
+
+        .form-section h2 {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border);
+            font-size: 1.3rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            color: var(--text-primary);
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            padding: 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(80, 250, 123, 0.2);
+        }
+
+        .form-group input:disabled {
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            background: #45d972;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px var(--shadow);
+        }
+
+        .btn-primary:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: rgba(80, 250, 123, 0.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .alert-error {
+            background: rgba(255, 85, 85, 0.2);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--text-muted);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .defect-section {
+            margin-bottom: 15px;
+        }
+
+        .defect-section h3 {
+            color: var(--warning);
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .defect-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .form-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-industry"></i> Контроль Отливок</h1>
+            <p>Электронная система контроля качества отливок</p>
+        </div>
+
+        <div id="alerts"></div>
+
+        <form id="controlForm">
+            <div class="form-container">
+                <!-- Control Data Section -->
+                <div class="form-section">
+                    <h2><i class="fas fa-clipboard-list"></i> Контрольные данные</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="номер_плавки">Номер плавки *</label>
+                            <select id="номер_плавки" name="номер_плавки" required>
+                                <option value="">Выберите плавку...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="контроль_отлито">Контроль отлито *</label>
+                            <input type="number" id="контроль_отлито" name="контроль_отлито" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="контроль_принято">Контроль принято</label>
+                            <input type="number" id="контроль_принято" name="контроль_принято" min="0" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="контроль_дата_приемки">Дата приемки *</label>
+                            <input type="date" id="контроль_дата_приемки" name="контроль_дата_приемки" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="контролер1">Контролер 1 *</label>
+                            <input type="text" id="контролер1" name="контролер1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="контролер2">Контролер 2</label>
+                            <input type="text" id="контролер2" name="контролер2">
+                        </div>
+                        <div class="form-group">
+                            <label for="контролер3">Контролер 3</label>
+                            <input type="text" id="контролер3" name="контролер3">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Second Grade Section -->
+                <div class="form-section">
+                    <h2><i class="fas fa-exclamation-triangle"></i> Второй сорт</h2>
+                    <div class="defect-section">
+                        <div class="defect-grid">
+                            <div class="form-group">
+                                <label for="второй_сорт_раковины">Раковины</label>
+                                <input type="number" id="второй_сорт_раковины" name="второй_сорт_раковины" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="второй_сорт_зарез">Зарез</label>
+                                <input type="number" id="второй_сорт_зарез" name="второй_сорт_зарез" min="0" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rework Section -->
+                <div class="form-section">
+                    <h2><i class="fas fa-tools"></i> Доработка</h2>
+                    <div class="defect-section">
+                        <h3>Дефекты для доработки</h3>
+                        <div class="defect-grid">
+                            <div class="form-group">
+                                <label for="доработка_раковины">Раковины</label>
+                                <input type="number" id="доработка_раковины" name="доработка_раковины" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_зарез">Зарез</label>
+                                <input type="number" id="доработка_зарез" name="доработка_зарез" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_несоответствие_размеров">Несоответствие размеров</label>
+                                <input type="number" id="доработка_несоответствие_размеров" name="доработка_несоответствие_размеров" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_несоответствие_внешнего_вида">Несоответствие внешнего вида</label>
+                                <input type="number" id="доработка_несоответствие_внешнего_вида" name="доработка_несоответствие_внешнего_вида" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_наплыв_металла">Наплыв металла</label>
+                                <input type="number" id="доработка_наплыв_металла" name="доработка_наплыв_металла" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_прорыв_металла">Прорыв металла</label>
+                                <input type="number" id="доработка_прорыв_металла" name="доработка_прорыв_металла" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_вырыв">Вырыв</label>
+                                <input type="number" id="доработка_вырыв" name="доработка_вырыв" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_облой">Облой</label>
+                                <input type="number" id="доработка_облой" name="доработка_облой" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_песок_на_поверхности">Песок на поверхности</label>
+                                <input type="number" id="доработка_песок_на_поверхности" name="доработка_песок_на_поверхности" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_песок_в_резьбе">Песок в резьбе</label>
+                                <input type="number" id="доработка_песок_в_резьбе" name="доработка_песок_в_резьбе" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_клей">Клей</label>
+                                <input type="number" id="доработка_клей" name="доработка_клей" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_коробление">Коробление</label>
+                                <input type="number" id="доработка_коробление" name="доработка_коробление" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_дефект_пеномодели">Дефект пеномодели</label>
+                                <input type="number" id="доработка_дефект_пеномодели" name="доработка_дефект_пеномодели" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_лапы">Лапы</label>
+                                <input type="number" id="доработка_лапы" name="доработка_лапы" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_питатель">Питатель</label>
+                                <input type="number" id="доработка_питатель" name="доработка_питатель" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_корона">Корона</label>
+                                <input type="number" id="доработка_корона" name="доработка_корона" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="доработка_смещение">Смещение</label>
+                                <input type="number" id="доработка_смещение" name="доработка_смещение" min="0" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Final Rejection Section -->
+                <div class="form-section">
+                    <h2><i class="fas fa-times-circle"></i> Окончательный брак</h2>
+                    <div class="defect-section">
+                        <h3>Бракованные отливки</h3>
+                        <div class="defect-grid">
+                            <div class="form-group">
+                                <label for="окончательный_брак_недолив">Недолив</label>
+                                <input type="number" id="окончательный_брак_недолив" name="окончательный_брак_недолив" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_раковины">Раковины</label>
+                                <input type="number" id="окончательный_брак_раковины" name="окончательный_брак_раковины" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_коробление">Коробление</label>
+                                <input type="number" id="окончательный_брак_коробление" name="окончательный_брак_коробление" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_спай">Спай</label>
+                                <input type="number" id="окончательный_брак_спай" name="окончательный_брак_спай" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_трещины">Трещины</label>
+                                <input type="number" id="окончательный_брак_трещины" name="окончательный_брак_трещины" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_пригар_песка">Пригар песка</label>
+                                <input type="number" id="окончательный_брак_пригар_песка" name="окончательный_брак_пригар_песка" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_пористость">Пористость</label>
+                                <input type="number" id="окончательный_брак_пористость" name="окончательный_брак_пористость" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_вырыв">Вырыв</label>
+                                <input type="number" id="окончательный_брак_вырыв" name="окончательный_брак_вырыв" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_скол">Скол</label>
+                                <input type="number" id="окончательный_брак_скол" name="окончательный_брак_скол" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_слом">Слом</label>
+                                <input type="number" id="окончательный_брак_слом" name="окончательный_брак_слом" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_зарез">Зарез</label>
+                                <input type="number" id="окончательный_брак_зарез" name="окончательный_брак_зарез" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_нарушение_геометрии">Нарушение геометрии</label>
+                                <input type="number" id="окончательный_брак_нарушение_геометрии" name="окончательный_брак_нарушение_геометрии" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_рыхлота">Рыхлота</label>
+                                <input type="number" id="окончательный_брак_рыхлота" name="окончательный_брак_рыхлота" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_непроклей">Непроклей</label>
+                                <input type="number" id="окончательный_брак_непроклей" name="окончательный_брак_непроклей" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_пеномодель">Пеномодель</label>
+                                <input type="number" id="окончательный_брак_пеномодель" name="окончательный_брак_пеномодель" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_наплыв_металла">Наплыв металла</label>
+                                <input type="number" id="окончательный_брак_наплыв_металла" name="окончательный_брак_наплыв_металла" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_несоответствие_размеров">Несоответствие размеров</label>
+                                <input type="number" id="окончательный_брак_несоответствие_размеров" name="окончательный_брак_несоответствие_размеров" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_несоответствие_внешнего_вида">Несоответствие внешнего вида</label>
+                                <input type="number" id="окончательный_брак_несоответствие_внешнего_вида" name="окончательный_брак_несоответствие_внешнего_вида" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_нарушение_маркировки">Нарушение маркировки</label>
+                                <input type="number" id="окончательный_брак_нарушение_маркировки" name="окончательный_брак_нарушение_маркировки" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_неслитина">Неслитина</label>
+                                <input type="number" id="окончательный_брак_неслитина" name="окончательный_брак_неслитина" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="окончательный_брак_прочее">Прочее</label>
+                                <input type="number" id="окончательный_брак_прочее" name="окончательный_брак_прочее" min="0" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <button type="submit" class="btn btn-primary" id="saveButton">
+                    <i class="fas fa-save"></i> Сохранить данные
+                </button>
+                <button type="button" class="btn" id="clearButton" style="margin-left: 10px; background: var(--text-muted); color: var(--text-primary);">
+                    <i class="fas fa-eraser"></i> Очистить форму
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        class ControlForm {
+            constructor() {
+                this.form = document.getElementById('controlForm');
+                this.alerts = document.getElementById('alerts');
+                this.init();
+            }
+
+            init() {
+                this.loadPlavkaNumbers();
+                this.setupEventListeners();
+                this.setTodayDate();
+            }
+
+            async loadPlavkaNumbers() {
+                try {
+                    const response = await fetch('/api/plavka-numbers');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const select = document.getElementById('номер_плавки');
+                        select.innerHTML = '<option value="">Выберите плавку...</option>';
+                        
+                        data.numbers.forEach(number => {
+                            const option = document.createElement('option');
+                            option.value = number;
+                            option.textContent = number;
+                            select.appendChild(option);
+                        });
+                    } else {
+                        this.showAlert('Ошибка загрузки плавок: ' + data.error, 'error');
+                    }
+                } catch (error) {
+                    this.showAlert('Ошибка соединения с сервером', 'error');
+                }
+            }
+
+            setupEventListeners() {
+                // Calculate control_prinato on input change
+                const defectInputs = document.querySelectorAll('input[type="number"]');
+                defectInputs.forEach(input => {
+                    input.addEventListener('input', () => this.calculateControlPrinato());
+                });
+
+                // Form submission
+                this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+                // Clear form
+                document.getElementById('clearButton').addEventListener('click', () => this.clearForm());
+
+                // Keyboard navigation
+                this.setupKeyboardNavigation();
+            }
+
+            async calculateControlPrinato() {
+                const контроль_отлито = parseInt(document.getElementById('контроль_отлито').value) || 0;
+                
+                if (контроль_отлито === 0) {
+                    document.getElementById('контроль_принято').value = 0;
+                    return;
+                }
+
+                try {
+                    const formData = new FormData(this.form);
+                    const data = Object.fromEntries(formData.entries());
+                    
+                    const response = await fetch('/api/calculate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        document.getElementById('контроль_принято').value = result.result;
+                    }
+                } catch (error) {
+                    console.error('Calculation error:', error);
+                }
+            }
+
+            async handleSubmit(e) {
+                e.preventDefault();
+                
+                if (!this.validateForm()) {
+                    return;
+                }
+
+                const saveButton = document.getElementById('saveButton');
+                const originalText = saveButton.innerHTML;
+                saveButton.innerHTML = '<span class="loading"></span> Сохранение...';
+                saveButton.disabled = true;
+
+                try {
+                    const formData = new FormData(this.form);
+                    const data = Object.fromEntries(formData.entries());
+                    
+                    const response = await fetch('/api/save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.showAlert(result.message, 'success');
+                        this.clearForm();
+                        await this.loadPlavkaNumbers(); // Refresh available numbers
+                    } else {
+                        this.showAlert(result.error, 'error');
+                    }
+                } catch (error) {
+                    this.showAlert('Ошибка сохранения данных', 'error');
+                } finally {
+                    saveButton.innerHTML = originalText;
+                    saveButton.disabled = false;
+                }
+            }
+
+            validateForm() {
+                const requiredFields = ['номер_плавки', 'контроль_отлито', 'контроль_дата_приемки', 'контролер1'];
+                
+                for (const field of requiredFields) {
+                    const input = document.getElementById(field);
+                    if (!input.value.trim()) {
+                        this.showAlert(`Поле "${input.previousElementSibling.textContent}" обязательно для заполнения`, 'error');
+                        input.focus();
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            clearForm() {
+                const inputs = this.form.querySelectorAll('input[type="number"], input[type="text"]');
+                inputs.forEach(input => {
+                    if (input.type === 'number') {
+                        input.value = 0;
+                    } else {
+                        input.value = '';
+                    }
+                });
+
+                document.getElementById('номер_плавки').value = '';
+                this.setTodayDate();
+                this.calculateControlPrinato();
+            }
+
+            setTodayDate() {
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('контроль_дата_приемки').value = today;
+            }
+
+            setupKeyboardNavigation() {
+                const inputs = Array.from(this.form.querySelectorAll('input, select'));
+                
+                inputs.forEach((input, index) => {
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'ArrowUp' && index > 0) {
+                            inputs[index - 1].focus();
+                        } else if (e.key === 'ArrowDown' && index < inputs.length - 1) {
+                            inputs[index + 1].focus();
+                        }
+                    });
+                });
+            }
+
+            showAlert(message, type) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${type}`;
+                alertDiv.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+                
+                this.alerts.innerHTML = '';
+                this.alerts.appendChild(alertDiv);
+                
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 5000);
+            }
+        }
+
+        // Initialize the form when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new ControlForm();
+        });
+    </script>
+</body>
+</html>
