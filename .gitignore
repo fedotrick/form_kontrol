@@ -50,4 +50,5 @@ htmlcov/
 
 # Прочие файлы, которые не нужны в репозитории
 *.log
-*.spec 
+*.spec
+controllers.txt 

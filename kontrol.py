@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
     QDateEdit, QPushButton, QMessageBox, QGroupBox, QLabel, QScrollArea, QComboBox, QHBoxLayout, QGraphicsDropShadowEffect,
     QDialog, QCalendarWidget, QRadioButton, QButtonGroup, QFileDialog, QTextBrowser, QTableWidget, QTableWidgetItem,
-    QHeaderView, QTabWidget, QCheckBox, QMainWindow
+    QHeaderView, QTabWidget, QCheckBox, QMainWindow, QListWidget, QInputDialog
 )
 from PySide6.QtCore import QDate, Qt, QPropertyAnimation, QEasingCurve, QEvent, QDateTime, QRegularExpression, QTimer
 from PySide6 import QtGui
@@ -169,12 +169,10 @@ class ControlForm(QWidget):
             }
         """)
         
-        # Список участников
-        persons = [
-            "Елхова", "Лабуткина", "Рябова", "Улитина"            
-        ]
+        # Загружаем список контролеров из файла или используем по умолчанию
+        self.persons = self.load_controllers()
         # Сортировка списка участников по возрастанию
-        persons.sort()
+        self.persons.sort()
         
         # Создаем основные поля ввода
         self.контроль_отлито_input = QLineEdit(self)
@@ -183,19 +181,19 @@ class ControlForm(QWidget):
         
         # Создаем комбобоксы для контролеров
         self.контролер1_input = QComboBox(self)
-        self.контролер1_input.addItems(persons)  # Добавляем участников в комбобокс
+        self.контролер1_input.addItems(self.persons)  # Добавляем участников в комбобокс
         self.контролер1_input.setFont(QtGui.QFont("Aptos", 12, QtGui.QFont.Bold))
         self.контролер1_input.setStyleSheet("color: white;")
         self.контролер1_input.setCurrentIndex(-1)  # Ничего не выбрано по умолчанию
         
         self.контролер2_input = QComboBox(self)
-        self.контролер2_input.addItems(persons)  # Добавляем участников в комбобокс
+        self.контролер2_input.addItems(self.persons)  # Добавляем участников в комбобокс
         self.контролер2_input.setFont(QtGui.QFont("Aptos", 12, QtGui.QFont.Bold))
         self.контролер2_input.setStyleSheet("color: white;")
         self.контролер2_input.setCurrentIndex(-1)
 
         self.контролер3_input = QComboBox(self)
-        self.контролер3_input.addItems(persons)  # Добавляем участников в комбобокс
+        self.контролер3_input.addItems(self.persons)  # Добавляем участников в комбобокс
         self.контролер3_input.setFont(QtGui.QFont("Aptos", 12, QtGui.QFont.Bold))
         self.контролер3_input.setStyleSheet("color: white;")
         self.контролер3_input.setCurrentIndex(-1)
@@ -223,9 +221,35 @@ class ControlForm(QWidget):
         form_layout1.addRow(QLabel("Номер кластера:"), self.номер_кластера_input)
         form_layout1.addRow(QLabel("Отлито, шт.:"), self.контроль_отлито_input)
         form_layout1.addRow(QLabel("Принято, шт.:"), self.контроль_принято_input)
+        # Создаем горизонтальный layout для контролеров с кнопкой управления
+        controllers_layout = QVBoxLayout()
+        
+        # Добавляем поля контролеров
         form_layout1.addRow(QLabel("Контролер 1:"), self.контролер1_input)
         form_layout1.addRow(QLabel("Контролер 2:"), self.контролер2_input)
         form_layout1.addRow(QLabel("Контролер 3:"), self.контролер3_input)
+        
+        # Добавляем кнопку управления контролерами
+        self.manage_controllers_button = QPushButton("Управление контролерами", self)
+        self.manage_controllers_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ffb86c;
+                color: #282a36;
+                font-size: 12px;
+                padding: 8px 15px;
+                font-weight: bold;
+                border-radius: 2px;
+                margin-top: 5px;
+            }
+            QPushButton:hover {
+                background-color: #ffc68a;
+            }
+            QPushButton:pressed {
+                background-color: #e6a05e;
+            }
+        """)
+        self.manage_controllers_button.clicked.connect(self.show_controller_management_dialog)
+        form_layout1.addRow("", self.manage_controllers_button)
         
         group_box1.setLayout(form_layout1)
 
@@ -610,6 +634,88 @@ class ControlForm(QWidget):
 
         # Устанавливаем фокус на первое поле при запуске
         self.контроль_дата_приемки_input.setFocus()
+
+    def load_controllers(self):
+        """Загружает список контролеров из файла или возвращает список по умолчанию"""
+        controllers_file = 'controllers.txt'
+        default_controllers = ["Елхова", "Лабуткина", "Рябова", "Улитина"]
+        
+        try:
+            if os.path.exists(controllers_file):
+                with open(controllers_file, 'r', encoding='utf-8') as f:
+                    controllers = [line.strip() for line in f.readlines() if line.strip()]
+                    if controllers:
+                        return controllers
+                    else:
+                        # Если файл пустой, создаем с контролерами по умолчанию
+                        self.save_controllers(default_controllers)
+                        return default_controllers
+            else:
+                # Если файла нет, создаем его с контролерами по умолчанию
+                self.save_controllers(default_controllers)
+                return default_controllers
+        except Exception as e:
+            QMessageBox.warning(self, "Ошибка", f"Ошибка при загрузке списка контролеров: {str(e)}")
+            return default_controllers
+    
+    def save_controllers(self, controllers):
+        """Сохраняет список контролеров в файл"""
+        controllers_file = 'controllers.txt'
+        try:
+            with open(controllers_file, 'w', encoding='utf-8') as f:
+                for controller in controllers:
+                    f.write(f"{controller}\n")
+        except Exception as e:
+            QMessageBox.warning(self, "Ошибка", f"Ошибка при сохранении списка контролеров: {str(e)}")
+    
+    def update_controller_lists(self):
+        """Обновляет все комбобоксы контролеров с новым списком"""
+        # Сохраняем текущие выборы
+        current1 = self.контролер1_input.currentText()
+        current2 = self.контролер2_input.currentText()
+        current3 = self.контролер3_input.currentText()
+        
+        # Очищаем и обновляем списки
+        self.контролер1_input.clear()
+        self.контролер2_input.clear()
+        self.контролер3_input.clear()
+        
+        self.контролер1_input.addItems(self.persons)
+        self.контролер2_input.addItems(self.persons)
+        self.контролер3_input.addItems(self.persons)
+        
+        # Восстанавливаем выборы, если они еще существуют в списке
+        if current1 in self.persons:
+            self.контролер1_input.setCurrentText(current1)
+        else:
+            self.контролер1_input.setCurrentIndex(-1)
+            
+        if current2 in self.persons:
+            self.контролер2_input.setCurrentText(current2)
+        else:
+            self.контролер2_input.setCurrentIndex(-1)
+            
+        if current3 in self.persons:
+            self.контролер3_input.setCurrentText(current3)
+        else:
+            self.контролер3_input.setCurrentIndex(-1)
+    
+    def show_controller_management_dialog(self):
+        """Показывает диалог управления контролерами"""
+        dialog = ControllerManagementDialog(self.persons, self)
+        if dialog.exec():
+            # Получаем обновленный список контролеров
+            new_controllers = dialog.get_controllers()
+            self.persons = new_controllers
+            self.persons.sort()
+            
+            # Сохраняем в файл
+            self.save_controllers(self.persons)
+            
+            # Обновляем комбобоксы
+            self.update_controller_lists()
+            
+            QMessageBox.information(self, "Успех", "Список контролеров успешно обновлен!")
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress and obj in self.focusable_widgets:
@@ -2620,6 +2726,247 @@ class ReportViewerDialog(QDialog):
             
         except Exception as e:
             raise Exception(f"Ошибка при печати страницы {pages}: {str(e)}")
+
+# Класс для управления списком контролеров
+class ControllerManagementDialog(QDialog):
+    def __init__(self, controllers, parent=None):
+        super().__init__(parent)
+        self.controllers = controllers.copy()  # Копия списка для редактирования
+        self.setWindowTitle("Управление списком контролеров")
+        self.setGeometry(200, 200, 400, 500)
+        
+        # Применяем темную тему как в основном приложении
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #282a36;
+                color: #f8f8f2;
+                font-family: 'Segoe UI', 'Aptos';
+                font-size: 12px;
+            }
+            
+            QLabel {
+                color: #f8f8f2;
+                padding: 5px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            
+            QListWidget {
+                background-color: #44475a;
+                color: #f8f8f2;
+                border: 1px solid #6272a4;
+                border-radius: 4px;
+                padding: 5px;
+                font-size: 12px;
+            }
+            
+            QListWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #6272a4;
+            }
+            
+            QListWidget::item:selected {
+                background-color: #bd93f9;
+                color: #282a36;
+            }
+            
+            QLineEdit {
+                background-color: #44475a;
+                color: #f8f8f2;
+                border: 1px solid #6272a4;
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 12px;
+            }
+            
+            QLineEdit:focus {
+                border: 2px solid #bd93f9;
+            }
+            
+            QPushButton {
+                background-color: #6272a4;
+                color: #f8f8f2;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            
+            QPushButton:hover {
+                background-color: #bd93f9;
+            }
+            
+            QPushButton:pressed {
+                background-color: #ff79c6;
+            }
+            
+            QPushButton:disabled {
+                background-color: #44475a;
+                color: #6272a4;
+            }
+        """)
+        
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Настройка пользовательского интерфейса"""
+        layout = QVBoxLayout(self)
+        
+        # Заголовок
+        header_label = QLabel("Управление списком контролеров")
+        header_label.setStyleSheet("""
+            QLabel {
+                color: #bd93f9;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px;
+                text-align: center;
+            }
+        """)
+        layout.addWidget(header_label)
+        
+        # Список контролеров
+        controllers_label = QLabel("Текущие контролеры:")
+        layout.addWidget(controllers_label)
+        
+        self.controllers_list = QListWidget()
+        self.update_controllers_list()
+        layout.addWidget(self.controllers_list)
+        
+        # Поле для добавления нового контролера
+        add_label = QLabel("Добавить нового контролера:")
+        layout.addWidget(add_label)
+        
+        add_layout = QHBoxLayout()
+        self.new_controller_input = QLineEdit()
+        self.new_controller_input.setPlaceholderText("Введите имя контролера...")
+        self.new_controller_input.returnPressed.connect(self.add_controller)
+        
+        self.add_button = QPushButton("Добавить")
+        self.add_button.setStyleSheet("""
+            QPushButton {
+                background-color: #50fa7b;
+                color: #282a36;
+            }
+            QPushButton:hover {
+                background-color: #69ff94;
+            }
+            QPushButton:pressed {
+                background-color: #41d66b;
+            }
+        """)
+        self.add_button.clicked.connect(self.add_controller)
+        
+        add_layout.addWidget(self.new_controller_input)
+        add_layout.addWidget(self.add_button)
+        layout.addLayout(add_layout)
+        
+        # Кнопки управления
+        buttons_layout = QHBoxLayout()
+        
+        self.remove_button = QPushButton("Удалить выбранного")
+        self.remove_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff5555;
+                color: #f8f8f2;
+            }
+            QPushButton:hover {
+                background-color: #ff6b6b;
+            }
+            QPushButton:pressed {
+                background-color: #e64545;
+            }
+        """)
+        self.remove_button.clicked.connect(self.remove_controller)
+        self.remove_button.setEnabled(False)
+        
+        buttons_layout.addWidget(self.remove_button)
+        layout.addLayout(buttons_layout)
+        
+        # Кнопки диалога
+        dialog_buttons_layout = QHBoxLayout()
+        
+        self.save_button = QPushButton("Сохранить")
+        self.save_button.setStyleSheet("""
+            QPushButton {
+                background-color: #50fa7b;
+                color: #282a36;
+                font-size: 14px;
+                padding: 12px 30px;
+            }
+            QPushButton:hover {
+                background-color: #69ff94;
+            }
+            QPushButton:pressed {
+                background-color: #41d66b;
+            }
+        """)
+        self.save_button.clicked.connect(self.accept)
+        
+        self.cancel_button = QPushButton("Отмена")
+        self.cancel_button.clicked.connect(self.reject)
+        
+        dialog_buttons_layout.addWidget(self.cancel_button)
+        dialog_buttons_layout.addWidget(self.save_button)
+        layout.addLayout(dialog_buttons_layout)
+        
+        # Подключаем обработчик выбора в списке
+        self.controllers_list.itemSelectionChanged.connect(self.on_selection_changed)
+    
+    def update_controllers_list(self):
+        """Обновляет отображение списка контролеров"""
+        self.controllers_list.clear()
+        for controller in sorted(self.controllers):
+            self.controllers_list.addItem(controller)
+    
+    def add_controller(self):
+        """Добавляет нового контролера в список"""
+        new_controller = self.new_controller_input.text().strip()
+        
+        if not new_controller:
+            QMessageBox.warning(self, "Предупреждение", "Введите имя контролера!")
+            return
+        
+        if new_controller in self.controllers:
+            QMessageBox.warning(self, "Предупреждение", "Такой контролер уже существует!")
+            return
+        
+        self.controllers.append(new_controller)
+        self.update_controllers_list()
+        self.new_controller_input.clear()
+        
+        QMessageBox.information(self, "Успех", f"Контролер '{new_controller}' успешно добавлен!")
+    
+    def remove_controller(self):
+        """Удаляет выбранного контролера из списка"""
+        current_item = self.controllers_list.currentItem()
+        if not current_item:
+            QMessageBox.warning(self, "Предупреждение", "Выберите контролера для удаления!")
+            return
+        
+        controller_name = current_item.text()
+        
+        # Подтверждение удаления
+        reply = QMessageBox.question(
+            self, "Подтверждение удаления",
+            f"Вы действительно хотите удалить контролера '{controller_name}'?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.controllers.remove(controller_name)
+            self.update_controllers_list()
+            QMessageBox.information(self, "Успех", f"Контролер '{controller_name}' успешно удален!")
+    
+    def on_selection_changed(self):
+        """Обрабатывает изменение выбора в списке контролеров"""
+        has_selection = bool(self.controllers_list.currentItem())
+        self.remove_button.setEnabled(has_selection)
+    
+    def get_controllers(self):
+        """Возвращает обновленный список контролеров"""
+        return self.controllers.copy()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
