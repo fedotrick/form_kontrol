@@ -1194,7 +1194,7 @@ class ControlForm(QWidget):
                         # Генерируем ежедневный отчет напрямую используя ReportHelper
                         daily_report_file = report_generator.generate_daily_report(selected_date)
                         if daily_report_file:
-                            QMessageBox.information(self, "Успех", f"Ежедневный отчет сохранен в файл: {daily_report_file}")
+                            QMessageBox.information(self, "Успех", f"Ежедневный отчет сохранен в папку ОТЧЁТЫ на рабочем столе:\n{os.path.basename(daily_report_file)}")
                             
                             # Открываем просмотрщик отчета для ежедневного отчета
                             viewer = ReportViewerDialog(daily_report_file, self)
@@ -1204,15 +1204,15 @@ class ControlForm(QWidget):
                     elif report_type == 'summary':
                         # Генерируем обычный сводный отчет
                         summary_report_file = report_generator.generate_summary_report(selected_date)
-                        QMessageBox.information(self, "Успех", f"Отчет сохранен в файл: {summary_report_file}")
+                        QMessageBox.information(self, "Успех", f"Сводный отчет сохранен в папку ОТЧЁТЫ на рабочем столе:\n{os.path.basename(summary_report_file)}")
                     elif report_type == 'full':
                         # Генерируем полный сводный отчет
                         full_report_file = report_generator.generate_full_report(selected_date)
-                        QMessageBox.information(self, "Успех", f"Отчет сохранен в файл: {full_report_file}")
+                        QMessageBox.information(self, "Успех", f"Полный сводный отчет сохранен в папку ОТЧЁТЫ на рабочем столе:\n{os.path.basename(full_report_file)}")
                     elif report_type == 'template':
                         # Создаем новый шаблон отчета
                         template_file = report_generator.create_new_report_template()
-                        QMessageBox.information(self, "Успех", f"Шаблон отчета создан в файл: {template_file}")
+                        QMessageBox.information(self, "Успех", f"Шаблон отчета создан в папке ОТЧЁТЫ на рабочем столе:\n{os.path.basename(template_file)}")
                     
                 except Exception as e:
                     traceback_str = traceback.format_exc()
@@ -1658,6 +1658,27 @@ class ReportGenerator:
             with open('report_generator.log', 'a', encoding='utf-8') as f:
                 f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}\n")
     
+    def get_reports_folder_path(self):
+        """Создает и возвращает путь к папке ОТЧЁТЫ на рабочем столе"""
+        try:
+            # Получаем путь к рабочему столу
+            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+            
+            # Путь к папке ОТЧЁТЫ
+            reports_folder = os.path.join(desktop_path, "ОТЧЁТЫ")
+            
+            # Создаем папку, если она не существует
+            if not os.path.exists(reports_folder):
+                os.makedirs(reports_folder)
+                self.log(f"Создана папка для отчетов: {reports_folder}")
+            
+            return reports_folder
+            
+        except Exception as e:
+            self.log(f"Ошибка при создании папки отчетов: {str(e)}")
+            # В случае ошибки возвращаем текущую папку
+            return os.getcwd()
+
     def generate_daily_report(self, date_str, summary_report_file=None):
         """Генерирует ежедневный отчет с помощью ReportHelper"""
         if not os.path.exists(self.report_file):
@@ -1700,9 +1721,13 @@ class ReportGenerator:
             if not success:
                 self.log("Предупреждение: Возникли проблемы при загрузке данных из файла контроля")
             
+            # Получаем путь к папке отчетов на рабочем столе
+            reports_folder = self.get_reports_folder_path()
+            
             # Формируем имя выходного файла
             output_date = formatted_date_str.replace(".", "-")
-            report_output = f'Отчет_{output_date}.xlsx'
+            report_filename = f'Отчет_{output_date}.xlsx'
+            report_output = os.path.join(reports_folder, report_filename)
             
             # Сохраняем отчет
             helper.save(report_output)
@@ -1758,9 +1783,13 @@ class ReportGenerator:
             else:
                 df_filtered = df_control
             
+            # Получаем путь к папке отчетов на рабочем столе
+            reports_folder = self.get_reports_folder_path()
+            
             # Создаем новый сводный отчет вместо использования шаблона
             suffix = f"_{date_str.replace('.', '-')}" if date_str else f"_{datetime.now().strftime('%d-%m-%Y')}"
-            summary_output = f'Сводный{suffix}.xlsx'
+            summary_filename = f'Сводный{suffix}.xlsx'
+            summary_output = os.path.join(reports_folder, summary_filename)
             
             # Работаем с новым пустым файлом
             wb = Workbook()
@@ -2065,8 +2094,12 @@ class ReportGenerator:
             self.log(f"Загрузка структуры из {self.control_file}")
             df_control = pd.read_excel(self.control_file)
             
+            # Получаем путь к папке отчетов на рабочем столе
+            reports_folder = self.get_reports_folder_path()
+            
             # Создаем новый файл отчета
-            output_file = 'Полный_сводный_отчет.xlsx'
+            output_filename = 'Полный_сводный_отчет.xlsx'
+            output_file = os.path.join(reports_folder, output_filename)
             wb = Workbook()
             ws = wb.active
             ws.title = "Полный сводный отчет"
@@ -2237,9 +2270,13 @@ class ReportGenerator:
                 df_filtered = df_control
                 date_str = "Все даты"
             
+            # Получаем путь к папке отчетов на рабочем столе
+            reports_folder = self.get_reports_folder_path()
+            
             # Создаем новый файл отчета
             suffix = f"_{date_str.replace('.', '-').replace(' ', '_')}"
-            output_file = f'Полный_сводный_отчет{suffix}.xlsx'
+            output_filename = f'Полный_сводный_отчет{suffix}.xlsx'
+            output_file = os.path.join(reports_folder, output_filename)
             
             wb = Workbook()
             ws = wb.active
